@@ -1,0 +1,225 @@
+<!doctype html>
+<html lang="zh-Hant">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <style>
+    :root { color-scheme: light dark; --bg: var(--figma-color-bg, #fff); --surface: var(--figma-color-bg-secondary, #f6f7f9); --text: var(--figma-color-text, #1c2431); --muted: var(--figma-color-text-secondary, #737d8c); --border: var(--figma-color-border, #e8ebf0); --accent: var(--figma-color-bg-brand, #2563eb); --on-accent: var(--figma-color-text-onbrand, #fff); }
+    * { box-sizing: border-box; }
+    html, body { margin: 0; height: 100%; background: var(--bg); color: var(--text); font: 12px/1.5 var(--font-family, Inter, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif); }
+    button, input { font: inherit; }
+    button { cursor: pointer; }
+    button:disabled { cursor: default; opacity: .4; }
+    button:focus-visible, summary:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+    #plugin-root { height: 100%; display: flex; flex-direction: column; }
+    header { padding: 22px 22px 18px; border-bottom: 1px solid var(--border); }
+    .brand { display: flex; align-items: center; gap: 10px; }
+    .brandmark { width: 30px; height: 30px; border-radius: 8px; background: var(--accent); color: var(--on-accent); display: grid; place-items: center; }
+    h1 { font-size: 17px; letter-spacing: -.5px; line-height: 1.2; margin: 0; font-weight: 650; }
+    .version { font-size: 10px; color: var(--muted); margin-left: auto; }
+    .tagline { margin: 10px 0 0; color: var(--muted); font-size: 11px; }
+    fig-content { display: block; padding: 18px 22px; flex: 1; min-height: 0; overflow: auto; }
+    fig-field { margin: 0 0 13px; }
+    fig-field > label { font-size: 11px; color: var(--muted); }
+    fig-footer { display: block; background: var(--bg); border-top: 1px solid var(--border); padding: 14px 22px 16px; }
+    section { padding: 0 0 18px; margin: 0 0 18px; border-bottom: 1px solid var(--border); }
+    section:last-of-type { margin-bottom: 12px; }
+    .section-head { display: flex; align-items: center; justify-content: space-between; margin-bottom: 12px; }
+    h2 { margin: 0; font-size: 12px; font-weight: 600; }
+    .eyeline { font-size: 10px; color: var(--muted); letter-spacing: .05em; text-transform: uppercase; }
+    .draw-row { display: flex; align-items: center; gap: 10px; }
+    #draw { flex: 1; }
+    .ghost { border: 0; background: transparent; color: var(--muted); padding: 8px 6px; }
+    #cancel { display: none; }
+    .drawing #cancel { display: inline-flex; }
+    .steps { display: flex; align-items: center; gap: 6px; margin-top: 14px; color: var(--muted); font-size: 10px; }
+    .step { display: inline-flex; align-items: center; gap: 5px; }
+    .step b { width: 17px; height: 17px; display: inline-grid; place-items: center; border: 1px solid var(--border); border-radius: 50%; font-size: 9px; font-weight: 500; }
+    .step.current { color: var(--accent); }
+    .step.current b { background: var(--accent); color: var(--on-accent); border-color: var(--accent); }
+    .step-divider { width: 10px; height: 1px; background: var(--border); }
+    .hint { font-size: 11px; margin: 10px 0 0; color: var(--muted); }
+    #ports-wrap { display: none; margin-top: 12px; align-items: center; gap: 14px; }
+    #ports-wrap.visible { display: flex; }
+    .port-grid { display: grid; grid-template-columns: repeat(3, 26px); grid-template-rows: repeat(3, 23px); gap: 2px; flex-shrink: 0; }
+    .port-grid button { padding: 0; border: 1px solid var(--border); background: var(--bg); color: var(--accent); border-radius: 5px; }
+    .port-grid button:hover { background: var(--surface); border-color: var(--accent); }
+    .port-center { background: var(--surface); border: 1px solid var(--border); border-radius: 4px; }
+    .port-name { color: var(--muted); font-size: 11px; overflow-wrap: anywhere; }
+    .port-name strong { display: block; color: var(--text); font-weight: 500; }
+    .segment { display: flex; gap: 4px; }
+    .segment button { flex: 1; display: flex; flex-direction: column; align-items: center; gap: 5px; border: 1px solid var(--border); border-radius: 7px; background: var(--bg); color: var(--muted); padding: 9px 4px 7px; font-size: 10px; }
+    .segment button.active { border-color: var(--accent); color: var(--accent); box-shadow: inset 0 0 0 .5px var(--accent); }
+    .segment button:hover { background: var(--surface); }
+    svg { flex-shrink: 0; }
+    .row { display: flex; gap: 14px; margin-top: 14px; align-items: center; }
+    .color-field { flex: 1; }
+    .weight-field { width: 82px; }
+    .color-field label, .weight-field label { display: block; font-size: 11px; color: var(--muted); margin-bottom: 6px; }
+    .swatches { display: flex; gap: 7px; align-items: center; }
+    .swatch { width: 21px; height: 21px; border: 3px solid var(--bg); outline: 1px solid transparent; background: var(--swatch); border-radius: 50%; padding: 0; }
+    .swatch.active { outline-color: var(--text); }
+    .stroke-row { margin-top: 10px; display: flex; justify-content: space-between; align-items: center; }
+    #dashed { display: flex; align-items: center; gap: 5px; padding: 5px 8px; border-radius: 5px; border: 1px solid var(--border); background: var(--bg); color: var(--muted); font-size: 10px; }
+    #dashed.active { color: var(--accent); border-color: var(--accent); }
+    .arrows { display: flex; gap: 3px; }
+    .arrows button { border: 0; border-radius: 4px; background: var(--bg); color: var(--muted); padding: 5px 7px; font-size: 10px; }
+    .arrows button.active { background: var(--surface); color: var(--text); }
+    .diagram-fields { margin-top: 13px; display: none; }
+    .diagram-fields.visible { display: block; }
+    .selected-caption { color: var(--muted); font-size: 10px; margin: 0 0 8px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .footer-row { display: flex; gap: 8px; align-items: center; }
+    #apply { flex: 1; }
+    #delete { border: 1px solid var(--border); background: var(--bg); color: var(--muted); height: 32px; width: 34px; border-radius: 6px; display: grid; place-items: center; }
+    #delete:hover:enabled { color: #dc2626; }
+    #status { margin: 10px 0 0; color: var(--muted); font-size: 10px; min-height: 28px; line-height: 1.45; }
+    #status.error { color: var(--figma-color-text-danger, #dc2626); }
+    details { font-size: 10px; color: var(--muted); }
+    summary { cursor: pointer; }
+    details p { margin: 8px 0; }
+    #refresh { padding: 4px 0; color: var(--accent); font-size: 10px; }
+    .mode-picker { margin-bottom: 12px; }
+    .mode-picker button { padding: 7px; flex-direction: row; justify-content: center; }
+    .meta { display: flex; justify-content: space-between; color: var(--muted); font-size: 10px; margin-top: 10px; }
+    .color-code { width: 84px; margin-top: 8px; }
+    #reverse { border: 1px solid var(--border); border-radius: 6px; background: var(--bg); color: var(--text); padding: 7px; }
+    #plugin-root.compact section:not(#drawing-section), #plugin-root.compact details, #plugin-root.compact .tagline, #plugin-root.compact .steps { display: none; }
+    #plugin-root.compact header { padding: 12px 22px; }
+    #plugin-root.compact fig-content { padding-top: 12px; }
+    #plugin-root.compact #drawing-section { border: 0; margin: 0; padding: 0; }
+    #plugin-root.compact #ports-wrap { display: none; }
+    @media (prefers-reduced-motion: no-preference) { button { transition: background .12s, border-color .12s; } }
+  </style>
+</head>
+<body>
+<div id="plugin-root">
+  <header>
+    <div class="brand">
+      <div class="brandmark"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="6" height="6" rx="1.5"/><path d="M6 10v6h11m-3-3 3 3-3 3"/></svg></div>
+      <h1>Click2Arrow</h1><span class="version">v0.2</span><button class="ghost" id="compact" aria-label="切換精簡面板" aria-pressed="false">精簡</button>
+    </div>
+    <p class="tagline">把畫面連起來，把流程說清楚。</p>
+  </header>
+  <fig-content>
+    <section id="drawing-section">
+      <div class="segment mode-picker" aria-label="連線點顯示方式"><button data-mode="visible" class="active" aria-pressed="true">直接顯示連線點</button><button data-mode="selection" aria-pressed="false">選取後顯示</button></div>
+      <div class="draw-row"><fig-button id="draw" type="submit">Draw</fig-button><button class="ghost" id="cancel">取消起點</button></div>
+      <div class="steps" aria-label="繪製步驟">
+        <span class="step" id="step1"><b>1</b><span id="step1-label">顯示節點</span></span><span class="step-divider"></span>
+        <span class="step" id="step2"><b>2</b>點起點</span><span class="step-divider"></span>
+        <span class="step" id="step3"><b>3</b>點終點</span>
+      </div>
+      <p class="hint" id="hint">按 Draw，直接點物件的起點和終點。</p>
+      <div class="meta"><span id="anchor-count">免選取物件</span><span id="connection-count">0 條連線</span></div>
+      <div id="ports-wrap">
+        <div class="port-grid" aria-label="選擇連線邊">
+          <span></span><button data-port="top" aria-label="上邊連線點">↑</button><span></span>
+          <button data-port="left" aria-label="左邊連線點">←</button><span class="port-center"></span><button data-port="right" aria-label="右邊連線點">→</button>
+          <span></span><button data-port="bottom" aria-label="下邊連線點">↓</button><span></span>
+        </div>
+        <div class="port-name"><strong id="target-name"></strong>可點畫布節點或左側方向鍵</div>
+      </div>
+    </section>
+    <section>
+      <div class="section-head"><h2>連線樣式</h2><span class="eyeline">Connection</span></div>
+      <div class="segment" id="routes">
+        <button data-route="elbow" class="active" aria-pressed="true"><svg width="32" height="21" viewBox="0 0 32 21" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M3 5h13v12h13m-4-4 4 4-4 4"/></svg>直角</button>
+        <button data-route="straight" aria-pressed="false"><svg width="32" height="21" viewBox="0 0 32 21" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M3 11h26m-5-5 5 5-5 5"/></svg>直線</button>
+        <button data-route="curve" aria-pressed="false"><svg width="32" height="21" viewBox="0 0 32 21" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M3 5c17 0 8 12 26 12m-4-4 4 4-4 4"/></svg>曲線</button>
+      </div>
+      <div class="row">
+        <div class="color-field"><label>顏色</label><div class="swatches">
+          <button class="swatch" data-color="#334155" style="--swatch:#334155" aria-label="深灰色" aria-pressed="false"></button>
+          <button class="swatch active" data-color="#2563eb" style="--swatch:#2563eb" aria-label="藍色" aria-pressed="true"></button>
+          <button class="swatch" data-color="#059669" style="--swatch:#059669" aria-label="綠色" aria-pressed="false"></button>
+          <button class="swatch" data-color="#e35b70" style="--swatch:#e35b70" aria-label="粉紅色" aria-pressed="false"></button>
+        </div><div class="color-code"><fig-input-text id="hex" value="#2563eb" aria-label="自訂顏色 HEX"></fig-input-text></div></div>
+        <div class="weight-field"><label for="weight">線寬</label><fig-input-number id="weight" value="2" min="1" max="8"></fig-input-number></div>
+      </div>
+      <div class="stroke-row">
+        <button id="dashed" aria-pressed="false"><svg width="20" height="10" viewBox="0 0 20 10" fill="none" stroke="currentColor" stroke-width="1.5" stroke-dasharray="3 3"><path d="M0 5h20"/></svg>虛線</button>
+        <div class="arrows" aria-label="箭頭方向"><button data-arrows="end" class="active" aria-pressed="true">單向</button><button data-arrows="both" aria-pressed="false">雙向</button><button data-arrows="none" aria-pressed="false">無箭頭</button></div>
+      </div>
+    </section>
+    <section>
+      <div class="section-head"><h2>流程內容</h2><span class="eyeline">Flow content</span></div>
+      <fig-field><label for="label">箭頭文字</label><fig-input-text id="label" value="" placeholder="例如：點擊確認、成功、失敗"></fig-input-text></fig-field>
+      <div class="segment" id="diagrams">
+        <button data-diagram="none" class="active" aria-pressed="true"><svg width="27" height="19" viewBox="0 0 27 19" fill="none" stroke="currentColor" stroke-width="1.4"><path d="M3 9.5h21"/></svg>無圖形</button>
+        <button data-diagram="process" aria-pressed="false"><svg width="27" height="19" viewBox="0 0 27 19" fill="none" stroke="currentColor" stroke-width="1.4"><rect x="3" y="3" width="21" height="13" rx="2"/></svg>Process</button>
+        <button data-diagram="decision" aria-pressed="false"><svg width="27" height="19" viewBox="0 0 27 19" fill="none" stroke="currentColor" stroke-width="1.4"><path d="m13.5 2 11 7.5-11 7.5-11-7.5Z"/></svg>Decision</button>
+        <button data-diagram="terminal" aria-pressed="false"><svg width="27" height="19" viewBox="0 0 27 19" fill="none" stroke="currentColor" stroke-width="1.4"><rect x="3" y="3" width="21" height="13" rx="6.5"/></svg>Start/End</button>
+      </div>
+      <div class="diagram-fields" id="diagram-fields"><fig-field><label for="diagram-text">圖形內文字</label><fig-input-text id="diagram-text" value="" placeholder="例如：是否通過驗證？"></fig-input-text></fig-field></div>
+    </section>
+    <details><summary>操作提示</summary><p>直接顯示模式：Draw 後顯示可見 Frame、Component、Instance 及流程圖形的四邊節點，直接點兩個節點即可連線。每次最多 40 個物件；縮放或平移可切換範圍。巢狀元件可另外選取，或切換「選取後顯示」。</p><p>Figma Design 未開放畫布 hover 事件，因此這裡使用持續顯示節點。完成一條箭頭後，可繼續繪製下一條。選取既有箭頭可修改文字與樣式。</p><p>Plugin 開啟時，連線會隨 frame 移動。重新開啟可更新已保存的連線。Decision 圖形也可作為新連線的起點。</p><button class="ghost" id="refresh">更新連線位置</button></details>
+  </fig-content>
+  <fig-footer>
+    <p class="selected-caption" id="selected-caption">新箭頭將使用上方設定</p>
+    <div class="footer-row"><button id="reverse" disabled title="交換起點與終點">反轉</button><fig-button id="apply" disabled>Apply changes</fig-button><button id="delete" disabled aria-label="刪除選取的箭頭"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M4 7h16M9 7V4h6v3M7 7l1 13h8l1-13M10 10v7m4-7v7"/></svg></button></div>
+    <p id="status" role="status" aria-live="polite">準備開始。按 Draw 快速連接兩個物件。</p>
+  </fig-footer>
+</div>
+<script>
+  const $ = id => document.getElementById(id);
+  const post = message => parent.postMessage({ pluginMessage: message }, '*');
+  let drawing = false, busy = false, compact = false, dirty = false;
+  let settings = { route: 'elbow', color: '#2563eb', weight: 2, arrows: 'end', dashed: false, label: '', diagram: 'none', diagramText: '' };
+  function readStyle() { return { ...settings, color: String($('hex').value || settings.color).trim(), weight: Number($('weight').value || 2), label: String($('label').value || '').slice(0, 180), diagramText: String($('diagram-text').value || '').slice(0, 120) }; }
+  function active(attribute, value) {
+    document.querySelectorAll('[' + attribute + ']').forEach(b => { const on = b.getAttribute(attribute) === value; b.classList.toggle('active', on); b.setAttribute('aria-pressed', String(on)); });
+  }
+  function syncControls(value) {
+    settings = { ...value }; active('data-route', settings.route); active('data-color', settings.color); active('data-arrows', settings.arrows); active('data-diagram', settings.diagram);
+    $('hex').value = settings.color; $('weight').value = settings.weight; $('label').value = settings.label; $('diagram-text').value = settings.diagramText;
+    $('dashed').classList.toggle('active', settings.dashed); $('dashed').setAttribute('aria-pressed', String(settings.dashed));
+    $('diagram-fields').classList.toggle('visible', settings.diagram !== 'none');
+  }
+  function validStyle() { const valid = /^#[0-9a-f]{6}$/i.test(readStyle().color); $('hex').setAttribute('aria-invalid', String(!valid)); if (!valid) { $('status').textContent = '顏色格式請使用 #RRGGBB，例如 #2563eb。'; $('status').classList.add('error'); } return valid; }
+  function changed() { if (!validStyle()) return; settings = readStyle(); dirty = true; post({ type: 'style', style: settings }); $('status').textContent = editingId ? '尚未套用：按 Apply changes 儲存。' : '新連線將使用這組設定。'; $('status').classList.remove('error'); }
+  for (const key of ['route', 'color', 'arrows', 'diagram']) {
+    document.querySelectorAll('[data-' + key + ']').forEach(b => b.addEventListener('click', () => {
+      settings[key] = b.getAttribute('data-' + key); if (key === 'color') $('hex').value = settings.color; active('data-' + key, settings[key]);
+      $('diagram-fields').classList.toggle('visible', settings.diagram !== 'none'); changed();
+    }));
+  }
+  $('dashed').addEventListener('click', () => { settings.dashed = !settings.dashed; $('dashed').classList.toggle('active', settings.dashed); $('dashed').setAttribute('aria-pressed', String(settings.dashed)); changed(); });
+  ['weight', 'label', 'diagram-text', 'hex'].forEach(id => $(id).addEventListener('change', changed));
+  $('draw').addEventListener('click', () => { if (!busy && (drawing || validStyle())) post(drawing ? { type: 'stop' } : { type: 'start', style: readStyle() }); });
+  $('cancel').addEventListener('click', () => post({ type: 'cancel' }));
+  $('apply').addEventListener('click', () => { if (!$('apply').disabled && !busy && validStyle()) { dirty = false; post({ type: 'apply', style: readStyle() }); } });
+  $('delete').addEventListener('click', () => { if (!$('delete').disabled && !busy) post({ type: 'delete' }); });
+  $('reverse').addEventListener('click', () => { if (!busy && !$('reverse').disabled) post({ type: 'reverse' }); });
+  $('compact').addEventListener('click', () => { compact = !compact; $('plugin-root').classList.toggle('compact', compact); $('compact').textContent = compact ? '展開' : '精簡'; $('compact').setAttribute('aria-pressed', String(compact)); post({ type: 'compact', value: compact }); });
+  document.querySelectorAll('[data-mode]').forEach(b => b.addEventListener('click', () => post({ type: 'anchors', mode: b.getAttribute('data-mode') })));
+  $('refresh').addEventListener('click', () => post({ type: 'refresh' }));
+  document.querySelectorAll('[data-port]').forEach(b => b.addEventListener('click', () => { if (!busy) post({ type: 'port', side: b.getAttribute('data-port') }); }));
+  document.addEventListener('keydown', e => { if (e.key === 'Escape') { e.preventDefault(); post({ type: 'cancel' }); } });
+  let editingId = null, lastStyle = null;
+  window.addEventListener('message', event => {
+    if (event.source !== parent) return;
+    const m = event.data && event.data.pluginMessage;
+    if (!m || m.type !== 'state') return;
+    drawing = m.drawing; busy = m.busy;
+    $('plugin-root').classList.toggle('drawing', drawing);
+    $('draw').textContent = drawing ? 'Stop drawing' : 'Draw'; $('draw').disabled = busy;
+    $('reverse').disabled = !m.editing || busy;
+    active('data-mode', m.anchorMode); $('step1-label').textContent = m.anchorMode === 'visible' ? '顯示節點' : '選取物件';
+    $('anchor-count').textContent = drawing ? (m.anchorCount || 0) + ' 個物件' + (m.anchorLimit ? ' · 已達顯示上限' : '') : m.anchorMode === 'visible' ? '免選取物件' : '選取物件後顯示節點';
+    $('connection-count').textContent = (m.connectionCount || 0) + ' 條連線';
+    $('apply').disabled = !m.editing || busy; $('delete').disabled = !m.editing || busy; $('cancel').disabled = busy;
+    $('ports-wrap').classList.toggle('visible', drawing && !!m.target); $('target-name').textContent = m.target ? m.target.name : '';
+    $('step1').classList.toggle('current', drawing && !m.target && !m.source);
+    $('step2').classList.toggle('current', drawing && !!m.target && !m.source);
+    $('step3').classList.toggle('current', drawing && !!m.source);
+    $('hint').textContent = m.anchorMode === 'visible' ? (!drawing ? '按 Draw，直接點物件的起點和終點。' : m.source ? '起點已設定。直接點另一個物件的終點。' : '直接點畫布上的連線點，設定起點。') : !drawing ? '按 Draw，再選取 frame 或 component。' : m.source ? '起點已設定。選取另一個物件，再點終點。' : m.target ? '點畫布上的四邊連線點之一，設定起點。' : '在 Figma 畫布選取物件，顯示四邊連線點。';
+    $('selected-caption').textContent = m.editing ? m.editing.name : '新箭頭將使用上方設定';
+    if (m.message) { $('status').textContent = m.message; $('status').classList.toggle('error', !!m.error); }
+    const id = m.editing ? m.editing.id : null;
+    if (m.style && (id !== editingId || lastStyle === null || !dirty && JSON.stringify(m.style) !== lastStyle)) { syncControls(m.style); dirty = false; lastStyle = JSON.stringify(m.style); }
+    editingId = id;
+  });
+  post({ type: 'ready' });
+</script>
+</body>
+</html>

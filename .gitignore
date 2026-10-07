@@ -1,0 +1,17 @@
+node_modules/
+code.js
+native-plugin/
+*.zip
+*.log
+.DS_Store
+.env
+.env.*
+!.env.example
+manifest.local.json
+*.local.json
+.local/
+.archive/
+.private/
+plugin-resource.json
+coverage/
+.security/

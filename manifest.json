@@ -1,0 +1,22 @@
+{
+  "name": "Click2Arrow",
+  "id": "REPLACE_WITH_YOUR_PLUGIN_ID",
+  "api": "1.0.0",
+  "main": "code.js",
+  "documentAccess": "dynamic-page",
+  "editorType": [
+    "figma"
+  ],
+  "relaunchButtons": [
+    {
+      "command": "edit",
+      "name": "Click2Arrow"
+    }
+  ],
+  "ui": "ui.html",
+  "networkAccess": {
+    "allowedDomains": [
+      "none"
+    ]
+  }
+}

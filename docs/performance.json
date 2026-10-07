@@ -1,0 +1,8 @@
+{
+  "current": {
+    "updates": 100,
+    "createdNodes": 0,
+    "endpointLookups": 0
+  },
+  "scope": "Mock operation counts only; not editor FPS or latency."
+}

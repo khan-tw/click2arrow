@@ -1,6 +1,6 @@
 # Click2Arrow
 
-An offline Figma Design plugin for connecting **existing frames, components and instances** with arrows, flowchart shapes and labels.
+An offline Figma Design plugin for connecting **existing frames, components and instances** with arrows, flowchart shapes and labels, and adding numbered range annotations.
 
 ```text
 Frame A ------[ Process ]------> Frame B
@@ -17,6 +17,8 @@ Frame A --------< Decision >---> Frame B
 - Editable arrow labels and midpoint Process, Decision or Start/End shapes. Diagram frames can be branching endpoints.
 - Reverse direction, compact panel, cancellation, connection counts and saved appearance preferences.
 - Connected geometry updates while the plugin is open. Existing arrow parts are updated in place during movement.
+- **Range annotations:** marquee-select existing objects, or draw a rectangle with Figma's R tool and explicitly convert it. Create an unfilled dashed outline, an automatic per-page number, and an editable note on the left or right.
+- Annotation titles, multiline notes, colors, note widths and selection padding. Select any annotation child to reopen the editor; deleting a note group leaves the original frames untouched.
 - No accounts, analytics, remote services or network access are required by the plugin.
 
 The panel uses Traditional Chinese with English product terms.
@@ -62,7 +64,31 @@ Select a generated arrow -> change settings -> Apply changes
 
 **Cancel** clears the pending source. **Stop drawing** and closing the plugin remove temporary ports. Escape cancels when the plugin panel has keyboard focus; it is not a global Figma shortcut. **Delete** removes the selected generated arrow. Source objects retain their parents, appearance and children.
 
-Labels and geometry are saved in the Figma document using plugin data. Anyone with appropriate access to the document may be able to read that data; it is not a secret store. Appearance preferences omit label text and selected node IDs.
+### Range annotations
+
+Switch to **範圍註記** (Range annotation), enter a note, and choose a range source:
+
+```text
+Existing objects:
+Marquee-select objects -> enter note -> Create annotation
+
+Exact drawn range:
+Click canvas -> R -> drag rectangle -> select it
+            -> Convert range rectangle -> enter note -> Create annotation
+
+Output:
++--[01]--------------------+     +---------------------+
+| Existing screen content  |     | #01 Optional title  |
+| (unfilled dashed border) |     | Explanatory note    |
++--------------------------+     +---------------------+
+
+Edit:
+Select annotation or a child -> change text / side / width -> Save annotation
+```
+
+Rectangle conversion **replaces only the selected rectangle**. It rejects locked rectangles, component/instance internals and auto-layout ancestors. Selection mode preserves every selected source object. Move the annotation group as a unit, or resize its border and save to reposition the note. Numbers increment per page and are retained when editing; deletion does not reuse numbers. Annotation ranges stay fixed rather than following source objects.
+
+Labels, notes and geometry are saved in the Figma document using plugin data. Anyone with appropriate access to the document may be able to read that data; it is not a secret store. Appearance preferences omit label text and selected node IDs.
 
 ## Platform limits
 
@@ -71,7 +97,8 @@ Labels and geometry are saved in the Figma document using plugin data. Anyone wi
 - Geometry synchronization covers up to 200 top-level connection outputs on the current page. The plugin must remain open; reopening or Refresh updates saved connections. Missing/hidden endpoints preserve existing arrow output.
 - Elbow routing avoids the two endpoints, not every unrelated canvas object. Overlapping endpoints or tight layouts may need another route.
 - Each arrow has one midpoint diagram and one label. Free placement of multiple intermediate steps is not implemented.
-- Use the panel to edit content that should survive synchronization; manually editing generated children does not update saved metadata.
+- For arrows, use the panel to edit content that should survive synchronization; manually editing generated children does not update saved metadata.
+- Range annotations allow up to 100 selected objects, 200 annotation groups per page, 2,000 characters per note and 80 per title. Direct native annotation text edits are read back when selected/reopened. Keep annotation groups at the page's top level to edit them in the plugin.
 
 ## Develop and verify
 
@@ -91,7 +118,7 @@ npm run verify:public
 - `tests/`: scene-graph test double and controller regression tests.
 - [Interaction design](docs/interaction-design.md), [validation](docs/validation.md), and [security review](docs/security-review.md).
 
-The current controller suite covers 16 scenarios, including verification that Draw does not show all visible ports by default. The operation-count benchmark checks 100 geometry updates; it is not a Figma FPS measurement. Native verification of the v0.2 direct-port workflow is still pending.
+The current controller suite covers 23 scenarios, including annotation creation, editing, conversion, numbering, source preservation and asynchronous cancellation. The operation-count benchmark checks 100 geometry updates; it is not a Figma FPS measurement. Native verification of the v0.2 direct-port and v0.3 annotation workflows is still pending.
 
 ## License
 

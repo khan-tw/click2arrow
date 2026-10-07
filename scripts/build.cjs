@@ -11,20 +11,24 @@ let html = fs.readFileSync(path.join(root, 'ui.html'), 'utf8');
 html = html
   .replace(/<fig-content>/g, '<main class="plugin-content">').replace(/<\/fig-content>/g, '</main>')
   .replace(/<fig-footer>/g, '<footer class="plugin-footer">').replace(/<\/fig-footer>/g, '</footer>')
-  .replace(/<fig-field>/g, '<div class="field">').replace(/<\/fig-field>/g, '</div>')
+  .replace(/<fig-field\b([^>]*)>/g, '<div class="field"$1>').replace(/<\/fig-field>/g, '</div>')
   .replace(/<fig-button\b([^>]*)>/g, '<button class="primary"$1>').replace(/<\/fig-button>/g, '</button>')
   .replace(/<fig-input-number\b([^>]*)><\/fig-input-number>/g, '<input class="number-input" type="number"$1>')
-  .replace(/<fig-input-text\b([^>]*)><\/fig-input-text>/g, '<input class="text-input" type="text"$1>')
+  .replace(/<fig-input-text\b([^>]*)><\/fig-input-text>/g, (_, attrs) => /\bmultiline\b/.test(attrs)
+    ? `<textarea class="text-input multiline-input" rows="5"${attrs.replace(/\bmultiline\b|\bvalue="[^"]*"/g, '')}></textarea>`
+    : `<input class="text-input" type="text"${attrs}>`)
   .replace(/fig-content/g, '.plugin-content').replace(/fig-footer/g, '.plugin-footer').replace(/fig-field/g, '.field')
   .replace('</style>', `
     .field { display: block; }
     .field > label { display: block; margin-bottom: 6px; }
     .primary { display: block; height: 34px; border: 0; border-radius: 6px; background: var(--accent); color: var(--on-accent); font-weight: 550; }
     .text-input, .number-input { width: 100%; height: 32px; border: 1px solid var(--border); border-radius: 6px; background: var(--bg); color: var(--text); padding: 6px 9px; outline-color: var(--accent); }
+    .multiline-input { height: 116px; min-height: 80px; resize: vertical; }
   </style>`)
   .replace('id="label" value=', 'id="label" maxlength="180" value=')
   .replace('id="diagram-text" value=', 'id="diagram-text" maxlength="120" value=');
 if (/<\/?fig-/.test(html)) throw new Error('Unconverted PropsKit control in native package');
+if (/<\./.test(html)) throw new Error('Malformed native control tag');
 const sourceManifest = JSON.parse(fs.readFileSync(path.join(root, 'manifest.json'), 'utf8'));
 const localPath = path.join(root, 'manifest.local.json');
 const local = fs.existsSync(localPath) ? JSON.parse(fs.readFileSync(localPath, 'utf8')) : {};

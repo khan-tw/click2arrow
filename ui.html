@@ -7,7 +7,8 @@
     :root { color-scheme: light dark; --bg: var(--figma-color-bg, #fff); --surface: var(--figma-color-bg-secondary, #f6f7f9); --text: var(--figma-color-text, #1c2431); --muted: var(--figma-color-text-secondary, #737d8c); --border: var(--figma-color-border, #e8ebf0); --accent: var(--figma-color-bg-brand, #2563eb); --on-accent: var(--figma-color-text-onbrand, #fff); }
     * { box-sizing: border-box; }
     html, body { margin: 0; height: 100%; background: var(--bg); color: var(--text); font: 12px/1.5 var(--font-family, Inter, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif); }
-    button, input { font: inherit; }
+    button, input, textarea { font: inherit; }
+    [hidden] { display: none !important; }
     button { cursor: pointer; }
     button:disabled { cursor: default; opacity: .4; }
     button:focus-visible, summary:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
@@ -80,6 +81,16 @@
     #refresh { padding: 4px 0; color: var(--accent); font-size: 10px; }
     .mode-picker { margin-bottom: 12px; }
     .mode-picker button { padding: 7px; flex-direction: row; justify-content: center; }
+    .workflow-tabs { margin-top: 14px; }
+    .annotating section:not(#annotation-section) { display: none; }
+    #annotation-section { display: none; }
+    .annotating #annotation-section { display: block; }
+    #plugin-root.annotating #reverse { display: none; }
+    .annotation-hint { padding: 10px 12px; background: var(--surface); border-radius: 6px; margin: 0 0 16px; color: var(--muted); font-size: 11px; }
+    .annotation-fields { display: flex; gap: 12px; margin-top: 14px; }
+    .annotation-fields fig-field { flex: 1; min-width: 0; }
+    .annotation-position { margin-top: 8px; }
+    .annotation-meta { font-size: 11px; color: var(--muted); margin-bottom: 12px; }
     .meta { display: flex; justify-content: space-between; color: var(--muted); font-size: 10px; margin-top: 10px; }
     .color-code { width: 84px; margin-top: 8px; }
     #reverse { border: 1px solid var(--border); border-radius: 6px; background: var(--bg); color: var(--text); padding: 7px; }
@@ -96,9 +107,10 @@
   <header>
     <div class="brand">
       <div class="brandmark"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="6" height="6" rx="1.5"/><path d="M6 10v6h11m-3-3 3 3-3 3"/></svg></div>
-      <h1>Click2Arrow</h1><span class="version">v0.2.1</span><button class="ghost" id="compact" aria-label="切換精簡面板" aria-pressed="false">精簡</button>
+      <h1>Click2Arrow</h1><span class="version">v0.3.0</span><button class="ghost" id="compact" aria-label="切換精簡面板" aria-pressed="false">精簡</button>
     </div>
     <p class="tagline">把畫面連起來，把流程說清楚。</p>
+    <div class="segment mode-picker workflow-tabs" aria-label="工具"><button data-workflow="arrows" class="active" aria-pressed="true">流程連線</button><button data-workflow="annotations" aria-pressed="false">範圍註記</button></div>
   </header>
   <fig-content>
     <section id="drawing-section">
@@ -152,7 +164,19 @@
       </div>
       <div class="diagram-fields" id="diagram-fields"><fig-field><label for="diagram-text">圖形內文字</label><fig-input-text id="diagram-text" value="" placeholder="例如：是否通過驗證？"></fig-input-text></fig-field></div>
     </section>
-    <details><summary>操作提示</summary><p>預設只在選取物件後顯示該物件的四邊節點。「顯示可見節點」需手動開啟，每次最多 40 個物件。</p><p>Figma Design 尚未開放既有物件的畫布 hover 事件；本版本尚未實作 hover 才顯示節點。完成一條箭頭後，可繼續繪製下一條。選取既有箭頭可修改文字與樣式。</p><p>Plugin 開啟時，連線會隨 frame 移動。重新開啟可更新已保存的連線。Decision 圖形也可作為新連線的起點。</p><button class="ghost" id="refresh">更新連線位置</button></details>
+    <section id="annotation-section">
+      <div class="section-head"><h2>範圍註記</h2><span class="eyeline">Annotation</span></div>
+      <div class="segment mode-picker" aria-label="註記範圍來源"><button data-range="selection" class="active" aria-pressed="true">框選現有物件</button><button data-range="rectangle" aria-pressed="false">轉換範圍矩形</button></div>
+      <p class="annotation-hint" id="annotation-hint">在 Figma 畫布拖曳框選物件，再建立註記。原有畫面會保留。</p>
+      <div class="annotation-meta" id="annotation-meta">下一個編號 #01 · 尚未選取範圍</div>
+      <fig-field><label for="annotation-title">標題（選填）</label><fig-input-text id="annotation-title" value="" placeholder="例如：登入流程" maxlength="80"></fig-input-text></fig-field>
+      <fig-field><label for="annotation-text">文字備註</label><fig-input-text id="annotation-text" multiline value="" placeholder="描述此範圍的操作、規則或注意事項" maxlength="2000" aria-describedby="annotation-hint"></fig-input-text></fig-field>
+      <label>備註位置</label><div class="segment mode-picker annotation-position" aria-label="備註位置"><button data-note-side="left" aria-pressed="false">左側</button><button data-note-side="right" class="active" aria-pressed="true">右側</button></div>
+      <div class="annotation-fields"><fig-field><label for="annotation-color">外框與編號顏色</label><fig-input-text id="annotation-color" value="#d97706" aria-label="註記顏色 HEX"></fig-input-text></fig-field><fig-field><label for="annotation-width">備註寬度</label><fig-input-number id="annotation-width" value="240" min="160" max="480"></fig-input-number></fig-field></div>
+      <fig-field id="annotation-padding-field"><label for="annotation-padding">外框留白</label><fig-input-number id="annotation-padding" value="16" min="0" max="100"></fig-input-number></fig-field>
+      <p class="hint">編號依頁面自動遞增。外框、編號與備註為一組，可移動整組；文字也能直接在畫布編輯。</p>
+    </section>
+    <details><summary>操作提示</summary><div id="arrow-help"><p>預設只在選取物件後顯示該物件的四邊節點。「顯示可見節點」需手動開啟，每次最多 40 個物件。</p><p>Figma Design 尚未開放既有物件的畫布 hover 事件；本版本尚未實作 hover 才顯示節點。完成一條箭頭後，可繼續繪製下一條。選取既有箭頭可修改文字與樣式。</p><p>Plugin 開啟時，連線會隨 frame 移動。重新開啟可更新已保存的連線。Decision 圖形也可作為新連線的起點。</p><button class="ghost" id="refresh">更新連線位置</button></div><div id="annotation-help" hidden><p>「框選現有物件」使用選取物件的外圍範圍。「轉換範圍矩形」使用 R 畫出的矩形，並將選取的矩形替換為虛線外框；不會修改範圍內的其他物件。</p><p>註記範圍為固定位置，不會自動跟隨原有物件。可直接拖曳外框邊緣調整大小，再按「儲存註記」更新旁邊的備註位置。選取註記內的任一圖層，即可編輯整組註記。</p></div></details>
   </fig-content>
   <fig-footer>
     <p class="selected-caption" id="selected-caption">新箭頭將使用上方設定</p>
@@ -164,6 +188,7 @@
   const $ = id => document.getElementById(id);
   const post = message => parent.postMessage({ pluginMessage: message }, '*');
   let drawing = false, busy = false, compact = false, dirty = false;
+  let workflow = 'arrows', rangeMode = 'selection', noteSide = 'right', annotationId = null, annotationDirty = false, lastAnnotation = null, uiState = null;
   let settings = { route: 'elbow', color: '#2563eb', weight: 2, arrows: 'end', dashed: false, label: '', diagram: 'none', diagramText: '' };
   function readStyle() { return { ...settings, color: String($('hex').value || settings.color).trim(), weight: Number($('weight').value || 2), label: String($('label').value || '').slice(0, 180), diagramText: String($('diagram-text').value || '').slice(0, 120) }; }
   function active(attribute, value) {
@@ -176,6 +201,20 @@
     $('diagram-fields').classList.toggle('visible', settings.diagram !== 'none');
   }
   function validStyle() { const valid = /^#[0-9a-f]{6}$/i.test(readStyle().color); $('hex').setAttribute('aria-invalid', String(!valid)); if (!valid) { $('status').textContent = '顏色格式請使用 #RRGGBB，例如 #2563eb。'; $('status').classList.add('error'); } return valid; }
+  function readAnnotation() { return { title: String($('annotation-title').value || '').slice(0, 80), text: String($('annotation-text').value || '').slice(0, 2000), color: String($('annotation-color').value || '').trim(), position: noteSide, padding: Number($('annotation-padding').value), noteWidth: Number($('annotation-width').value) }; }
+  function validAnnotation() { const o = readAnnotation(); return !!o.text.trim() && /^#[0-9a-f]{6}$/i.test(o.color) && Number.isFinite(o.noteWidth) && o.noteWidth >= 160 && o.noteWidth <= 480 && Number.isFinite(o.padding) && o.padding >= 0 && o.padding <= 100; }
+  function updateAnnotationAction() {
+    if (workflow !== 'annotations' || !uiState) return;
+    const a = uiState.annotation, canCreate = rangeMode === 'rectangle' ? uiState.annotationCanConvert : uiState.annotationCanCreate;
+    $('apply').textContent = a ? '儲存註記' : '建立註記'; $('apply').disabled = busy || !validAnnotation() || !(a ? a.editable : canCreate);
+    $('delete').disabled = busy || !a || !a.editable; $('delete').setAttribute('aria-label', '刪除選取的範圍註記');
+    document.querySelectorAll('[data-range]').forEach(b => b.disabled = !!a || busy);
+    $('annotation-padding-field').hidden = !!a || rangeMode === 'rectangle';
+    $('annotation-hint').textContent = a ? '修改文字或樣式後，按「儲存註記」。直接調整外框後也可儲存，更新備註位置。' : rangeMode === 'rectangle' ? '先點畫布，按 R 拖曳矩形，再選取它。建立註記會替換該矩形；範圍內的其他物件保持原樣。' : '在 Figma 畫布拖曳框選物件，再建立註記。原有畫面會保留。';
+    $('annotation-meta').textContent = a ? '正在編輯 #' + String(a.number).padStart(2, '0') : '下一個編號 #' + String(uiState.annotationNext || 1).padStart(2, '0') + ' · ' + (uiState.annotationSelectionCount ? '已選取 ' + uiState.annotationSelectionCount + ' 個物件' : '尚未選取範圍');
+  }
+  function annotationChanged() { annotationDirty = true; updateAnnotationAction(); $('annotation-color').setAttribute('aria-invalid', String(!/^#[0-9a-f]{6}$/i.test(readAnnotation().color))); $('status').textContent = annotationId ? '尚未儲存：按「儲存註記」。' : '選取範圍並填寫備註後，按「建立註記」。'; $('status').classList.remove('error'); }
+  function syncAnnotation(o) { $('annotation-title').value = o.title; $('annotation-text').value = o.text; $('annotation-color').value = o.color; $('annotation-width').value = o.noteWidth; $('annotation-padding').value = o.padding; noteSide = o.position; active('data-note-side', noteSide); }
   function changed() { if (!validStyle()) return; settings = readStyle(); dirty = true; post({ type: 'style', style: settings }); $('status').textContent = editingId ? '尚未套用：按 Apply changes 儲存。' : '新連線將使用這組設定。'; $('status').classList.remove('error'); }
   for (const key of ['route', 'color', 'arrows', 'diagram']) {
     document.querySelectorAll('[data-' + key + ']').forEach(b => b.addEventListener('click', () => {
@@ -187,11 +226,15 @@
   ['weight', 'label', 'diagram-text', 'hex'].forEach(id => $(id).addEventListener('change', changed));
   $('draw').addEventListener('click', () => { if (!busy && (drawing || validStyle())) post(drawing ? { type: 'stop' } : { type: 'start', style: readStyle() }); });
   $('cancel').addEventListener('click', () => post({ type: 'cancel' }));
-  $('apply').addEventListener('click', () => { if (!$('apply').disabled && !busy && validStyle()) { dirty = false; post({ type: 'apply', style: readStyle() }); } });
-  $('delete').addEventListener('click', () => { if (!$('delete').disabled && !busy) post({ type: 'delete' }); });
+  $('apply').addEventListener('click', () => { if ($('apply').disabled || busy) return; if (workflow === 'annotations') { if (validAnnotation()) { annotationDirty = false; post(annotationId ? { type: 'annotation-apply', options: readAnnotation() } : { type: 'annotation-create', mode: rangeMode, options: readAnnotation() }); } } else if (validStyle()) { dirty = false; post({ type: 'apply', style: readStyle() }); } });
+  $('delete').addEventListener('click', () => { if (!$('delete').disabled && !busy) post({ type: workflow === 'annotations' ? 'annotation-delete' : 'delete' }); });
   $('reverse').addEventListener('click', () => { if (!busy && !$('reverse').disabled) post({ type: 'reverse' }); });
   $('compact').addEventListener('click', () => { compact = !compact; $('plugin-root').classList.toggle('compact', compact); $('compact').textContent = compact ? '展開' : '精簡'; $('compact').setAttribute('aria-pressed', String(compact)); post({ type: 'compact', value: compact }); });
   document.querySelectorAll('[data-mode]').forEach(b => b.addEventListener('click', () => post({ type: 'anchors', mode: b.getAttribute('data-mode') })));
+  document.querySelectorAll('[data-workflow]').forEach(b => b.addEventListener('click', () => { if (!busy) post({ type: 'workflow', value: b.getAttribute('data-workflow') }); }));
+  document.querySelectorAll('[data-range]').forEach(b => b.addEventListener('click', () => { if (!busy && !annotationId) { rangeMode = b.getAttribute('data-range'); active('data-range', rangeMode); updateAnnotationAction(); } }));
+  document.querySelectorAll('[data-note-side]').forEach(b => b.addEventListener('click', () => { noteSide = b.getAttribute('data-note-side'); active('data-note-side', noteSide); annotationChanged(); }));
+  ['annotation-title', 'annotation-text', 'annotation-color', 'annotation-width', 'annotation-padding'].forEach(id => { $(id).addEventListener('input', annotationChanged); $(id).addEventListener('change', annotationChanged); });
   $('refresh').addEventListener('click', () => post({ type: 'refresh' }));
   document.querySelectorAll('[data-port]').forEach(b => b.addEventListener('click', () => { if (!busy) post({ type: 'port', side: b.getAttribute('data-port') }); }));
   document.addEventListener('keydown', e => { if (e.key === 'Escape') { e.preventDefault(); post({ type: 'cancel' }); } });
@@ -200,7 +243,11 @@
     if (event.source !== parent) return;
     const m = event.data && event.data.pluginMessage;
     if (!m || m.type !== 'state') return;
-    drawing = m.drawing; busy = m.busy;
+    uiState = m; drawing = m.drawing; busy = m.busy; workflow = m.workflow || 'arrows';
+    $('plugin-root').classList.toggle('annotating', workflow === 'annotations'); active('data-workflow', workflow);
+    $('arrow-help').hidden = workflow === 'annotations'; $('annotation-help').hidden = workflow !== 'annotations';
+    $('compact').hidden = workflow === 'annotations';
+    if (workflow === 'annotations' && compact) { compact = false; $('plugin-root').classList.remove('compact'); $('compact').textContent = '精簡'; $('compact').setAttribute('aria-pressed', 'false'); post({ type: 'compact', value: false }); }
     $('plugin-root').classList.toggle('drawing', drawing);
     $('draw').textContent = drawing ? 'Stop drawing' : 'Draw'; $('draw').disabled = busy;
     $('reverse').disabled = !m.editing || busy;
@@ -208,6 +255,7 @@
     $('anchor-count').textContent = drawing ? (m.anchorCount || 0) + ' 個物件' + (m.anchorLimit ? ' · 已達顯示上限' : '') : m.anchorMode === 'visible' ? '免選取物件' : '選取物件後顯示節點';
     $('connection-count').textContent = (m.connectionCount || 0) + ' 條連線';
     $('apply').disabled = !m.editing || busy; $('delete').disabled = !m.editing || busy; $('cancel').disabled = busy;
+    $('apply').textContent = 'Apply changes'; $('delete').setAttribute('aria-label', '刪除選取的箭頭');
     $('ports-wrap').classList.toggle('visible', drawing && !!m.target); $('target-name').textContent = m.target ? m.target.name : '';
     $('step1').classList.toggle('current', drawing && !m.target && !m.source);
     $('step2').classList.toggle('current', drawing && !!m.target && !m.source);
@@ -218,6 +266,11 @@
     const id = m.editing ? m.editing.id : null;
     if (m.style && (id !== editingId || lastStyle === null || !dirty && JSON.stringify(m.style) !== lastStyle)) { syncControls(m.style); dirty = false; lastStyle = JSON.stringify(m.style); }
     editingId = id;
+    const a = m.annotation, aid = a ? a.id : null;
+    if (a && (aid !== annotationId || !annotationDirty && JSON.stringify(a.options) !== lastAnnotation)) { syncAnnotation(a.options); annotationDirty = false; lastAnnotation = JSON.stringify(a.options); }
+    else if (!a && annotationId) { $('annotation-title').value = ''; $('annotation-text').value = ''; annotationDirty = false; lastAnnotation = null; }
+    annotationId = aid;
+    if (workflow === 'annotations') { $('selected-caption').textContent = a ? a.name : '建立編號外框與旁側備註'; updateAnnotationAction(); }
   });
   post({ type: 'ready' });
 </script>

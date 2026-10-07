@@ -2,6 +2,9 @@
 // this session; source frames/components are never reparented or restyled.
 const RELAUNCH = 'edit'
 const EDGE_DATA = 'click2arrow.v1'
+const ANNOTATION_DATA = 'click2arrow.annotation.v1'
+type AnnotationOptions = { title: string; text: string; color: string; position: 'left' | 'right'; padding: number; noteWidth: number }
+type RangeAnnotation = { version: 1; number: number; options: AnnotationOptions }
 type Side = 'top' | 'right' | 'bottom' | 'left'
 type Point = { x: number; y: number }
 type Endpoint = { id: string; side: Side }
@@ -18,6 +21,10 @@ type Message =
   | { type: 'start' | 'style' | 'apply'; style: Style }
   | { type: 'port'; side: Side }
   | { type: 'anchors'; mode: 'visible' | 'selection' }
+  | { type: 'workflow'; value: 'arrows' | 'annotations' }
+  | { type: 'annotation-create'; mode: 'selection' | 'rectangle'; options: AnnotationOptions }
+  | { type: 'annotation-apply'; options: AnnotationOptions }
+  | { type: 'annotation-delete' }
 const defaults: Style = { route: 'elbow', color: '#2563eb', weight: 2, arrows: 'end', dashed: false, label: '', diagram: 'none', diagramText: '' }
 const sides: Side[] = ['top', 'right', 'bottom', 'left']
 let style = { ...defaults }
@@ -28,6 +35,8 @@ let drawing = false
 let source: Endpoint | null = null
 let selectedTarget: SceneNode | null = null
 let editing: FrameNode | null = null
+let workflow: 'arrows' | 'annotations' = 'arrows'
+let editingAnnotation: FrameNode | null = null
 let busy = false
 let isClosed = false
 let page = figma.currentPage
@@ -63,7 +72,7 @@ function data(node: BaseNode): Edge | null {
   } catch { return null }
 }
 function target(node: SceneNode | null): node is FrameNode | ComponentNode | InstanceNode | ComponentSetNode {
-  return !!node && !node.removed && node.visible && !node.locked && !['edge', 'label'].includes(node.getPluginData('c2a-role')) && node.name !== 'Flow label' &&
+  return !!node && !node.removed && node.visible && !node.locked && !['edge', 'label', 'annotation', 'annotation-note', 'annotation-badge'].includes(node.getPluginData('c2a-role')) && node.name !== 'Flow label' &&
     ['FRAME', 'COMPONENT', 'INSTANCE', 'COMPONENT_SET'].includes(node.type)
 }
 function transform(n: SceneNode, p: Point): Point {
@@ -146,6 +155,164 @@ function part<T extends SceneNode>(parent: FrameNode, key: string, name: string,
 function removePart(parent: FrameNode, key: string): void {
   const n = parent.children.find(c => c.getPluginData('c2a-part') === key)
   if (n) n.remove()
+}
+const annotationDefaults: AnnotationOptions = { title: '', text: '', color: '#d97706', position: 'right', padding: 16, noteWidth: 240 }
+function annotationOptions(value: Partial<AnnotationOptions> | undefined): AnnotationOptions {
+  const o = value || {}
+  return {
+    title: typeof o.title === 'string' ? o.title.slice(0, 80) : '',
+    text: typeof o.text === 'string' ? o.text.slice(0, 2000) : '',
+    color: typeof o.color === 'string' && /^#[0-9a-f]{6}$/i.test(o.color) ? o.color : annotationDefaults.color,
+    position: o.position === 'left' ? 'left' : 'right',
+    padding: Math.max(0, Math.min(100, finite(o.padding, 16))),
+    noteWidth: Math.max(160, Math.min(480, finite(o.noteWidth, 240)))
+  }
+}
+function annotationData(node: BaseNode): RangeAnnotation | null {
+  try {
+    const a = JSON.parse(node.getPluginData(ANNOTATION_DATA)) as RangeAnnotation
+    if (a.version !== 1 || !Number.isInteger(a.number) || a.number < 1 || a.number > 9999) return null
+    a.options = annotationOptions(a.options)
+    return a
+  } catch { return null }
+}
+function ownedAnnotation(node: SceneNode | null): FrameNode | null {
+  let n: BaseNode | null = node
+  while (n && n !== page) {
+    if (n.type === 'FRAME' && annotationData(n)) return n
+    n = n.parent
+  }
+  return null
+}
+function annotationPart(frame: FrameNode, key: string): SceneNode | undefined {
+  return frame.children.find(n => n.getPluginData('c2a-part') === key)
+}
+function annotationSnapshot(frame: FrameNode): RangeAnnotation | null {
+  const a = annotationData(frame)
+  if (!a) return null
+  const note = annotationPart(frame, 'annotation-note')
+  if (note && note.type === 'FRAME') {
+    const title = annotationPart(note, 'annotation-title'), text = annotationPart(note, 'annotation-text')
+    // Native text edits remain authoritative when reopening the panel.
+    if (title?.type === 'TEXT') a.options.title = title.characters.slice(0, 80)
+    if (text?.type === 'TEXT') a.options.text = text.characters.slice(0, 2000)
+  }
+  return a
+}
+function nextAnnotationNumber(): number {
+  let next = Math.max(1, Math.floor(finite(Number(page.getPluginData('c2a-annotation-next')), 1)))
+  for (const node of page.children) {
+    const a = annotationData(node)
+    if (a) next = Math.max(next, a.number + 1)
+  }
+  return next
+}
+function annotationSelection(): SceneNode[] {
+  return page.selection.filter(n => !n.removed && n.visible && n.getPluginData('c2a-role') !== 'handle' && !ownedAnnotation(n))
+}
+function convertibleRectangle(nodes: readonly SceneNode[]): nodes is [RectangleNode] {
+  if (nodes.length !== 1 || nodes[0].removed || !nodes[0].visible || nodes[0].type !== 'RECTANGLE' || nodes[0].locked || ownedAnnotation(nodes[0])) return false
+  let parent = nodes[0].parent
+  while (parent && parent !== page) {
+    if (parent.type === 'INSTANCE' || parent.type === 'COMPONENT' || parent.type === 'COMPONENT_SET' ||
+      'locked' in parent && parent.locked || 'layoutMode' in parent && parent.layoutMode !== 'NONE') return false
+    parent = parent.parent
+  }
+  return parent === page
+}
+function annotationBounds(nodes: readonly SceneNode[], padding: number): Box {
+  if (!nodes.length || nodes.length > 100) throw new Error('請框選 1 至 100 個物件，或用 R 畫出範圍矩形。')
+  const boxes = nodes.map(n => n.absoluteBoundingBox)
+  if (nodes.some(n => n.removed || !n.visible) || boxes.some(b => !b || ![b.x, b.y, b.width, b.height].every(Number.isFinite))) throw new Error('無法讀取範圍，請重新選取。')
+  const valid = boxes as Rect[], x = Math.min(...valid.map(b => b.x)) - padding, y = Math.min(...valid.map(b => b.y)) - padding
+  const width = Math.max(...valid.map(b => b.x + b.width)) - x + padding, height = Math.max(...valid.map(b => b.y + b.height)) - y + padding
+  if (width < 1 || height < 1 || width > 50000 || height > 50000) throw new Error('範圍過小或過大，請調整框選範圍。')
+  return { x, y, width, height }
+}
+function annotationText(parent: FrameNode, key: string, value: string, width: number, color: string, fontSize: number): TextNode {
+  const text = part(parent, key, key, () => figma.createText())
+  text.fontName = { family: 'Inter', style: 'Regular' }; text.fontSize = fontSize
+  text.lineHeight = { value: 150, unit: 'PERCENT' }; text.textAlignHorizontal = 'LEFT'
+  text.fills = [paint(color)]; text.textAutoResize = 'HEIGHT'
+  text.resize(width, Math.max(1, text.height)); text.characters = value
+  return text
+}
+function renderAnnotation(frame: FrameNode, a: RangeAnnotation, box: Box, axes?: Transform): void {
+  const o = a.options, borderX = o.position === 'left' ? o.noteWidth + 24 : 0, borderY = 14
+  // Keep the outlined area fixed when switching note sides, even after rotation.
+  const t = axes || [[1, 0, 0], [0, 1, 0]]
+  move(frame, box.x - t[0][0] * borderX - t[0][1] * borderY, box.y - t[1][0] * borderX - t[1][1] * borderY)
+  frame.fills = []; frame.strokes = []; frame.clipsContent = false
+  const border = part(frame, 'annotation-border', 'Annotation range', () => figma.createRectangle())
+  size(border, box.width, box.height); move(border, borderX, borderY)
+  border.fills = []; border.strokes = [paint(o.color)]; border.strokeWeight = 2; border.strokeAlign = 'OUTSIDE'; border.dashPattern = [8, 5]; border.cornerRadius = 6
+  const number = String(a.number).padStart(2, '0')
+  const badge = part(frame, 'annotation-badge', `Annotation ${number}`, () => figma.createFrame())
+  badge.setPluginData('c2a-role', 'annotation-badge'); badge.fills = [paint(o.color)]; badge.cornerRadius = 14; badge.clipsContent = false
+  const badgeWidth = Math.max(32, number.length * 9 + 14)
+  size(badge, badgeWidth, 28); move(badge, borderX + 12, 0)
+  const badgeText = annotationText(badge, 'annotation-number', number, badgeWidth - 8, '#ffffff', 13)
+  badgeText.textAlignHorizontal = 'CENTER'; move(badgeText, 4, (28 - badgeText.height) / 2)
+  const note = part(frame, 'annotation-note', 'Annotation note', () => figma.createFrame())
+  note.setPluginData('c2a-role', 'annotation-note'); note.fills = [paint('#ffffff')]; note.strokes = [paint(o.color)]; note.strokeWeight = 1; note.cornerRadius = 8; note.clipsContent = false
+  const heading = annotationText(note, 'annotation-heading', `#${number}`, o.noteWidth - 28, o.color, 12)
+  move(heading, 14, 12)
+  let textY = 12 + heading.height + 8
+  if (o.title.trim()) {
+    const title = annotationText(note, 'annotation-title', o.title, o.noteWidth - 28, '#0f172a', 14)
+    move(title, 14, textY); textY += title.height + 6
+  } else removePart(note, 'annotation-title')
+  const body = annotationText(note, 'annotation-text', o.text, o.noteWidth - 28, '#334155', 13)
+  move(body, 14, textY); size(note, o.noteWidth, textY + body.height + 14)
+  move(note, o.position === 'left' ? 0 : borderX + box.width + 24, borderY)
+  size(frame, box.width + 24 + o.noteWidth, Math.max(box.height, note.height) + borderY)
+  frame.setPluginData('c2a-role', 'annotation'); frame.setPluginData(ANNOTATION_DATA, JSON.stringify(a))
+  frame.name = `Annotation ${number}${o.title.trim() ? ': ' + o.title : ''}`
+  frame.setRelaunchData({ [RELAUNCH]: 'Edit range annotation' })
+}
+async function createAnnotation(mode: 'selection' | 'rectangle', value: AnnotationOptions): Promise<void> {
+  const options = annotationOptions(value), selected = [...page.selection], nodes = annotationSelection(), currentPage = page, rev = revision
+  if (!options.text.trim()) throw new Error('請先輸入文字備註。')
+  if (nodes.length !== selected.length) throw new Error('請選取要註記的原有物件，不包含既有註記或連線點。')
+  if (mode === 'rectangle' && !convertibleRectangle(selected)) throw new Error('請選取一個可編輯的矩形；元件或自動排版內的矩形無法轉換。')
+  if (currentPage.children.filter(n => !!annotationData(n)).length >= 200) throw new Error('此頁面已達 200 個註記。請分頁建立。')
+  annotationBounds(nodes, mode === 'selection' ? options.padding : 0)
+  busy = true; report('建立範圍註記中...')
+  let frame: FrameNode | null = null
+  try {
+    await figma.loadFontAsync({ family: 'Inter', style: 'Regular' })
+    if (isClosed || page !== currentPage || rev !== revision) return
+    if (mode === 'rectangle' && !convertibleRectangle(selected)) throw new Error('矩形已變更，請重新選取。')
+    const box = annotationBounds(nodes, mode === 'selection' ? options.padding : 0), number = nextAnnotationNumber()
+    if (number > 9999) throw new Error('此頁面的註記編號已用完，請新增頁面。')
+    frame = figma.createFrame(); page.appendChild(frame)
+    renderAnnotation(frame, { version: 1, number, options }, box)
+    // Only explicit rectangle-conversion mode consumes the selected rectangle.
+    if (mode === 'rectangle') selected[0].remove()
+    page.setPluginData('c2a-annotation-next', String(number + 1))
+    editingAnnotation = frame; page.selection = [frame]; figma.commitUndo()
+    report(`註記 #${String(number).padStart(2, '0')} 已建立。可直接編輯文字，或移動整組註記。`)
+  } catch (err) {
+    if (frame && !frame.removed) frame.remove()
+    throw err
+  } finally { busy = false; report() }
+}
+async function applyAnnotation(value: AnnotationOptions): Promise<void> {
+  const frame = editingAnnotation, a = frame && !frame.removed ? annotationSnapshot(frame) : null, rev = revision
+  if (!frame || !a || frame.parent !== page || frame.locked) throw new Error('請先選取目前頁面可編輯的範圍註記。')
+  const options = annotationOptions(value)
+  if (!options.text.trim()) throw new Error('請先輸入文字備註。')
+  busy = true; report('儲存註記中...')
+  try {
+    await figma.loadFontAsync({ family: 'Inter', style: 'Regular' })
+    if (isClosed || rev !== revision) return
+    if (frame.removed || frame.parent !== page || frame.locked) throw new Error('註記已移動或刪除，請重新選取。')
+    const border = annotationPart(frame, 'annotation-border')
+    if (!border || border.type !== 'RECTANGLE') throw new Error('註記外框已刪除，請重新建立註記。')
+    const origin = transform(border, { x: 0, y: 0 })
+    renderAnnotation(frame, { ...a, options }, { ...origin, width: border.width, height: border.height }, frame.absoluteTransform)
+    figma.commitUndo(); report('註記已儲存。編號與原有範圍保持不變。')
+  } finally { busy = false; report() }
 }
 function vector(parent: FrameNode, key: string, name: string, points: Point[], color: string, weight: number, filled = false, path?: string): VectorNode {
   const v = part(parent, key, name, () => figma.createVector())
@@ -327,8 +494,13 @@ function updateHandles(): void {
 function showHandles(node: SceneNode): void { selectedTarget = node; updateHandles() }
 function report(message?: string, error = false): void {
   if (isClosed) return
+  const annotation = editingAnnotation && !editingAnnotation.removed ? annotationSnapshot(editingAnnotation) : null
+  const selected = annotationSelection()
   figma.ui.postMessage({ type: 'state', drawing, busy, source, anchorMode, anchorLimit, anchorCount: handles.size / 4, connectionCount: tracked.size, target: selectedTarget && !selectedTarget.removed ? { id: selectedTarget.id, name: selectedTarget.name } : null,
-    editing: editing && !editing.removed ? { id: editing.id, name: editing.name } : null, style, message, error })
+    editing: editing && !editing.removed ? { id: editing.id, name: editing.name } : null, style, workflow,
+    annotation: annotation && editingAnnotation ? { id: editingAnnotation.id, name: editingAnnotation.name, ...annotation, editable: editingAnnotation.parent === page && !editingAnnotation.locked } : null,
+    annotationSelectionCount: selected.length, annotationCanCreate: selected.length > 0 && selected.length <= 100 && selected.length === page.selection.length,
+    annotationCanConvert: convertibleRectangle(page.selection), annotationNext: nextAnnotationNumber(), message, error })
 }
 async function pick(endpoint: Endpoint): Promise<void> {
   if (!drawing || busy) return
@@ -366,9 +538,19 @@ function ownedEdge(node: SceneNode | null): FrameNode | null {
   }
   return null
 }
-function selectionChanged(): void {
+function selectionChanged(allowAutoSwitch = true): void {
   if (busy || isClosed) return
   const selection = page.selection
+  const annotation = selection.length === 1 ? ownedAnnotation(selection[0]) : null
+  if (annotation && allowAutoSwitch) {
+    workflow = 'annotations'; drawing = false; source = null; selectedTarget = null; editing = null; clearHandles()
+  }
+  if (workflow === 'annotations') {
+    editingAnnotation = annotation; editing = null; selectedTarget = null
+    report(annotation ? '已選取範圍註記。可修改備註，或直接調整外框。' : '框選現有物件，或按 R 畫矩形，再建立範圍註記。')
+    return
+  }
+  editingAnnotation = null
   if (selection.length !== 1) {
     selectedTarget = null; updateHandles()
     report(selection.length > 1 ? '請一次選取一個 frame 或 component。' : undefined); return
@@ -409,7 +591,7 @@ async function refreshGeometry(): Promise<boolean> {
 }
 function changed(): void {
   if (timer !== undefined) return
-  timer = setTimeout(() => { timer = undefined; void refreshGeometry().catch(() => report('無法更新箭頭，請重新開啟 plugin。', true)) }, 32)
+  timer = setTimeout(() => { timer = undefined; if (workflow === 'annotations') report(); void refreshGeometry().catch(() => report('無法更新箭頭，請重新開啟 plugin。', true)) }, 32)
 }
 // Editor property changes can arrive without a usable page notification.
 // Check the bounded set of saved endpoints while the plugin is open. The
@@ -432,13 +614,13 @@ function scan(): void {
   }
 }
 figma.showUI(__html__, { width: 360, height: 690, themeColors: true })
-figma.root.setRelaunchData({ [RELAUNCH]: 'Draw flow arrows' })
+figma.root.setRelaunchData({ ...figma.root.getRelaunchData(), [RELAUNCH]: 'Draw flow arrows and range annotations' })
 scan()
 page.on('nodechange', changed)
 watchGeometry()
 figma.on('selectionchange', selectionChanged)
 figma.on('currentpagechange', () => {
-  revision++; clearHandles(); source = null; selectedTarget = null; editing = null
+  revision++; clearHandles(); source = null; selectedTarget = null; editing = null; editingAnnotation = null
   endpointCache.clear(); partStyles.clear(); page.off('nodechange', changed); page = figma.currentPage; scan(); page.on('nodechange', changed); selectionChanged(); changed()
 })
 figma.on('close', () => {
@@ -455,6 +637,21 @@ figma.ui.onmessage = async (m: Message) => {
       await figma.loadFontAsync({ family: 'Inter', style: 'Regular' }); fontReady = true; selectionChanged(); changed(); return
     }
     if (busy && m.type !== 'style') { report('請等待目前操作完成。'); return }
+    if (m.type === 'workflow') {
+      workflow = m.value === 'annotations' ? 'annotations' : 'arrows'
+      if (workflow === 'annotations') { drawing = false; source = null; selectedTarget = null; clearHandles(); editing = null }
+      editingAnnotation = null; selectionChanged(false); report(); return
+    }
+    if (m.type === 'annotation-create') {
+      if (workflow !== 'annotations' || (m.mode !== 'rectangle' && m.mode !== 'selection')) throw new Error('請先切換至範圍註記。')
+      await createAnnotation(m.mode, m.options); return
+    }
+    if (m.type === 'annotation-apply') { if (workflow !== 'annotations') throw new Error('請先切換至範圍註記。'); await applyAnnotation(m.options); return }
+    if (m.type === 'annotation-delete') {
+      const frame = editingAnnotation
+      if (workflow !== 'annotations' || !frame || frame.removed || frame.parent !== page || frame.locked || !annotationData(frame)) throw new Error('請先選取可編輯的範圍註記。')
+      frame.remove(); editingAnnotation = null; page.selection = []; figma.commitUndo(); report('已刪除選取的範圍註記。'); return
+    }
     if (m.type === 'compact') { figma.ui.resize(360, m.value ? 350 : 690); return }
     if (m.type === 'anchors') {
       anchorMode = m.mode === 'selection' ? 'selection' : 'visible'; updateHandles(); report('連線點顯示方式已切換。'); return
@@ -463,7 +660,7 @@ figma.ui.onmessage = async (m: Message) => {
       style = validateStyle(m.style)
       const { label: _label, diagramText: _text, ...preferences } = style
       figma.root.setPluginData('c2a-preferences', JSON.stringify(preferences))
-      if (m.type === 'start') { drawing = true; source = null; editing = null; selectionChanged(); updateHandles(); report(anchorMode === 'visible' ? '直接點起點，再點終點。每次顯示最多 40 個可見物件。' : '選取 frame 或 component，顯示四邊連線點。') }
+      if (m.type === 'start') { workflow = 'arrows'; editingAnnotation = null; drawing = true; source = null; editing = null; selectionChanged(false); updateHandles(); report(anchorMode === 'visible' ? '直接點起點，再點終點。每次顯示最多 40 個可見物件。' : '選取 frame 或 component，顯示四邊連線點。') }
       return
     }
     if (m.type === 'stop' || m.type === 'cancel') {

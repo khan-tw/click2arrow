@@ -221,3 +221,119 @@ test('Draw defaults to one selected object and never populates all visible ports
     x.figma.currentPage.selection = []; await tick(); assert.equal(x.dots().length, 0);
   } finally { x.figma.emit('close'); }
 });
+
+const annotationOptions = { title: 'Review range', text: 'Explain this part of the flow.\nSecond line.', color: '#d97706', position: 'right', padding: 16, noteWidth: 240 };
+const annotations = x => x.figma.currentPage.children.filter(n => n.getPluginData('c2a-role') === 'annotation');
+const annotationPart = (n, key) => n.children.find(c => c.getPluginData('c2a-part') === key);
+const annotationData = n => JSON.parse(n.getPluginData('click2arrow.annotation.v1'));
+async function annotate(x, nodes = [x.a, x.b], options = annotationOptions, mode = 'selection') {
+  await x.send({ type: 'workflow', value: 'annotations' });
+  x.figma.currentPage.selection = nodes; await tick();
+  await x.send({ type: 'annotation-create', mode, options }); await tick();
+  return annotations(x).at(-1);
+}
+test('range annotation encloses native selection, creates a numbered dashed border and preserves originals', async () => {
+  const x = await setup();
+  try {
+    const original = JSON.stringify([x.a, x.b].map(n => [n.id, n.x, n.y, n.width, n.height, n.parent.id, n.fills]));
+    const frame = await annotate(x), border = annotationPart(frame, 'annotation-border');
+    assert.deepEqual(border.absoluteBoundingBox, { x: 64, y: 84, width: 772, height: 292 });
+    assert.equal(border.fills.length, 0); assert.deepEqual(Array.from(border.dashPattern), [8, 5]);
+    const note = annotationPart(frame, 'annotation-note');
+    assert.equal(note.absoluteBoundingBox.x, border.absoluteBoundingBox.x + border.width + 24);
+    assert.equal(annotationPart(note, 'annotation-text').characters, annotationOptions.text);
+    assert.equal(annotationPart(annotationPart(frame, 'annotation-badge'), 'annotation-number').characters, '01');
+    assert.equal(annotationData(frame).number, 1); assert.equal(x.figma.currentPage.selection[0], frame);
+    assert.equal(x.figma.undoCount, 1);
+    assert.equal(original, JSON.stringify([x.a, x.b].map(n => [n.id, n.x, n.y, n.width, n.height, n.parent.id, n.fills])));
+  } finally { x.figma.emit('close'); }
+});
+test('rectangle conversion uses exact absolute range and consumes only the explicit rectangle', async () => {
+  const x = await setup();
+  try {
+    const rect = x.figma.createRectangle(); x.a.appendChild(rect); rect.x = 25; rect.y = 40; rect.resize(90, 60); rect.rotation = 15;
+    const box = rect.absoluteBoundingBox;
+    const frame = await annotate(x, [rect], annotationOptions, 'rectangle');
+    assert.equal(rect.removed, true); assert.equal(x.a.removed, false); assert.equal(x.b.removed, false);
+    const actual = annotationPart(frame, 'annotation-border').absoluteBoundingBox;
+    for (const key of ['x', 'y', 'width', 'height']) assert.ok(Math.abs(actual[key] - box[key]) < .001);
+    assert.equal(x.a.parent, x.figma.currentPage);
+  } finally { x.figma.emit('close'); }
+});
+test('annotation edits preserve IDs, rotated range position and number; native text edits survive reopening', async () => {
+  const x = await setup();
+  try {
+    const frame = await annotate(x), border = annotationPart(frame, 'annotation-border'), note = annotationPart(frame, 'annotation-note');
+    frame.rotation = 23; frame.x += 100; frame.y -= 30; border.resize(400, 300);
+    const box = border.absoluteBoundingBox;
+    const body = annotationPart(note, 'annotation-text'); body.characters = 'Edited directly on canvas';
+    await x.choose(body); assert.equal(x.state().annotation.options.text, body.characters);
+    await x.send({ type: 'annotation-apply', options: { ...annotationOptions, text: body.characters, position: 'left', noteWidth: 300 } });
+    assert.equal(annotationPart(frame, 'annotation-border'), border); assert.equal(annotationPart(frame, 'annotation-note'), note);
+    assert.equal(annotationPart(note, 'annotation-text'), body); assert.equal(frame.rotation, 23);
+    for (const key of ['x', 'y', 'width', 'height']) assert.ok(Math.abs(border.absoluteBoundingBox[key] - box[key]) < .001);
+    assert.equal(annotationData(frame).number, 1); assert.equal(x.figma.currentPage.getPluginData('c2a-annotation-next'), '2');
+    x.figma.emit('close');
+    vm.runInNewContext(code, { figma: x.figma, __html__: '', setTimeout, clearTimeout });
+    await x.figma.ui.onmessage({ type: 'ready' });
+    assert.equal(x.state().workflow, 'annotations'); assert.equal(x.state().annotation.options.text, 'Edited directly on canvas');
+    assert.equal(x.state().annotation.number, 1);
+  } finally { x.figma.emit('close'); }
+});
+test('annotation deletion is scoped and numbering continues after deletion and imported higher numbers', async () => {
+  const x = await setup();
+  try {
+    const first = await annotate(x); await x.send({ type: 'annotation-delete' });
+    assert.equal(first.removed, true); assert.equal(x.a.removed, false); assert.equal(x.b.removed, false);
+    const second = await annotate(x); assert.equal(annotationData(second).number, 2);
+    second.setPluginData('click2arrow.annotation.v1', JSON.stringify({ ...annotationData(second), number: 20 }));
+    const third = await annotate(x); assert.equal(annotationData(third).number, 21);
+    await x.choose(x.a); await x.send({ type: 'annotation-delete' });
+    assert.equal(third.removed, false); assert.equal(x.a.removed, false); assert.equal(x.state().error, true);
+  } finally { x.figma.emit('close'); }
+});
+test('invalid ranges and unsafe rectangle conversion leave the page untouched', async () => {
+  const x = await setup();
+  try {
+    const rect = x.figma.createRectangle(), count = x.figma.nodes.size;
+    await annotate(x, [rect], { ...annotationOptions, text: '   ' }, 'rectangle');
+    assert.equal(annotations(x).length, 0); assert.equal(rect.removed, false); assert.equal(x.figma.nodes.size, count);
+    x.a.layoutMode = 'HORIZONTAL'; x.a.appendChild(rect);
+    await annotate(x, [rect], annotationOptions, 'rectangle'); assert.equal(rect.removed, false); assert.equal(annotations(x).length, 0);
+    x.a.layoutMode = 'NONE'; x.a.type = 'INSTANCE';
+    await annotate(x, [rect], annotationOptions, 'rectangle'); assert.equal(annotations(x).length, 0);
+    x.figma.currentPage.appendChild(rect); rect.locked = true;
+    await annotate(x, [rect], annotationOptions, 'rectangle'); assert.equal(rect.removed, false); assert.equal(annotations(x).length, 0);
+    await annotate(x, [], annotationOptions); assert.equal(annotations(x).length, 0);
+    await annotate(x, [x.b], annotationOptions, 'rectangle'); assert.equal(x.b.removed, false);
+    x.b.width = Infinity; await annotate(x, [x.b]); assert.equal(annotations(x).length, 0);
+  } finally { x.figma.emit('close'); }
+});
+test('annotation creation is cancelled across page changes, close or font failure without consuming the rectangle', async () => {
+  for (const stop of ['page', 'close', 'font']) {
+    const x = await setup();
+    try {
+      const originalPage = x.figma.currentPage, rect = x.figma.createRectangle();
+      await x.send({ type: 'workflow', value: 'annotations' }); await x.choose(rect);
+      let finish;
+      x.figma.loadFontAsync = () => new Promise((resolve, reject) => { finish = stop === 'font' ? () => reject(new Error('Font unavailable')) : resolve; });
+      const pending = x.send({ type: 'annotation-create', mode: 'rectangle', options: annotationOptions });
+      if (stop === 'page') { const p = new x.figma.Node('PAGE'); x.figma.root.appendChild(p); x.figma.changePage(p); }
+      if (stop === 'close') x.figma.emit('close');
+      finish(); await pending;
+      assert.equal(rect.removed, false); assert.equal(originalPage.children.filter(n => n.getPluginData('c2a-role') === 'annotation').length, 0);
+      assert.equal(x.figma.undoCount, 0);
+    } finally { x.figma.emit('close'); }
+  }
+});
+test('annotation workflow clears arrow ports, and annotations never become arrow endpoints', async () => {
+  const x = await setup('visible');
+  try {
+    await x.send({ type: 'start', style: defaults }); assert.ok(x.dots().length);
+    const frame = await annotate(x); assert.equal(x.dots().length, 0); assert.equal(x.state().drawing, false);
+    await x.send({ type: 'workflow', value: 'arrows' }); await x.send({ type: 'start', style: defaults });
+    assert.equal(x.dots().length, 8);
+    await x.choose(annotationPart(frame, 'annotation-note'));
+    assert.equal(x.state().workflow, 'annotations'); assert.equal(x.dots().length, 0);
+  } finally { x.figma.emit('close'); }
+});

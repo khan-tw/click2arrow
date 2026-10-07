@@ -48,7 +48,7 @@
     const document = new Node('DOCUMENT'), initialPage = new Node('PAGE'); document.appendChild(initialPage);
     const figma = {
       root: document, currentPage: initialPage, viewport: { zoom: 1, center: { x: 500, y: 300 } },
-      ui: { postMessage() {}, onmessage: null }, undoCount: 0,
+      ui: { postMessage() {}, resize() {}, onmessage: null }, undoCount: 0,
       showUI() {}, loadFontAsync: async () => {},
       getNodeByIdAsync: async id => { const n = nodes.get(id); return n && !n.removed ? n : null; },
       commitUndo() { this.undoCount++; },

@@ -1,278 +1,338 @@
 <!doctype html>
 <html lang="zh-Hant">
 <head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1">
-  <style>
-    :root { color-scheme: light dark; --bg: var(--figma-color-bg, #fff); --surface: var(--figma-color-bg-secondary, #f6f7f9); --text: var(--figma-color-text, #1c2431); --muted: var(--figma-color-text-secondary, #737d8c); --border: var(--figma-color-border, #e8ebf0); --accent: var(--figma-color-bg-brand, #2563eb); --on-accent: var(--figma-color-text-onbrand, #fff); }
-    * { box-sizing: border-box; }
-    html, body { margin: 0; height: 100%; background: var(--bg); color: var(--text); font: 12px/1.5 var(--font-family, Inter, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif); }
-    button, input, textarea { font: inherit; }
-    [hidden] { display: none !important; }
-    button { cursor: pointer; }
-    button:disabled { cursor: default; opacity: .4; }
-    button:focus-visible, summary:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
-    #plugin-root { height: 100%; display: flex; flex-direction: column; }
-    header { padding: 22px 22px 18px; border-bottom: 1px solid var(--border); }
-    .brand { display: flex; align-items: center; gap: 10px; }
-    .brandmark { width: 30px; height: 30px; border-radius: 8px; background: var(--accent); color: var(--on-accent); display: grid; place-items: center; }
-    h1 { font-size: 17px; letter-spacing: -.5px; line-height: 1.2; margin: 0; font-weight: 650; }
-    .version { font-size: 10px; color: var(--muted); margin-left: auto; }
-    .tagline { margin: 10px 0 0; color: var(--muted); font-size: 11px; }
-    fig-content { display: block; padding: 18px 22px; flex: 1; min-height: 0; overflow: auto; }
-    fig-field { margin: 0 0 13px; }
-    fig-field > label { font-size: 11px; color: var(--muted); }
-    fig-footer { display: block; background: var(--bg); border-top: 1px solid var(--border); padding: 14px 22px 16px; }
-    section { padding: 0 0 18px; margin: 0 0 18px; border-bottom: 1px solid var(--border); }
-    section:last-of-type { margin-bottom: 12px; }
-    .section-head { display: flex; align-items: center; justify-content: space-between; margin-bottom: 12px; }
-    h2 { margin: 0; font-size: 12px; font-weight: 600; }
-    .eyeline { font-size: 10px; color: var(--muted); letter-spacing: .05em; text-transform: uppercase; }
-    .draw-row { display: flex; align-items: center; gap: 10px; }
-    #draw { flex: 1; }
-    .ghost { border: 0; background: transparent; color: var(--muted); padding: 8px 6px; }
-    #cancel { display: none; }
-    .drawing #cancel { display: inline-flex; }
-    .steps { display: flex; align-items: center; gap: 6px; margin-top: 14px; color: var(--muted); font-size: 10px; }
-    .step { display: inline-flex; align-items: center; gap: 5px; }
-    .step b { width: 17px; height: 17px; display: inline-grid; place-items: center; border: 1px solid var(--border); border-radius: 50%; font-size: 9px; font-weight: 500; }
-    .step.current { color: var(--accent); }
-    .step.current b { background: var(--accent); color: var(--on-accent); border-color: var(--accent); }
-    .step-divider { width: 10px; height: 1px; background: var(--border); }
-    .hint { font-size: 11px; margin: 10px 0 0; color: var(--muted); }
-    #ports-wrap { display: none; margin-top: 12px; align-items: center; gap: 14px; }
-    #ports-wrap.visible { display: flex; }
-    .port-grid { display: grid; grid-template-columns: repeat(3, 26px); grid-template-rows: repeat(3, 23px); gap: 2px; flex-shrink: 0; }
-    .port-grid button { padding: 0; border: 1px solid var(--border); background: var(--bg); color: var(--accent); border-radius: 5px; }
-    .port-grid button:hover { background: var(--surface); border-color: var(--accent); }
-    .port-center { background: var(--surface); border: 1px solid var(--border); border-radius: 4px; }
-    .port-name { color: var(--muted); font-size: 11px; overflow-wrap: anywhere; }
-    .port-name strong { display: block; color: var(--text); font-weight: 500; }
-    .segment { display: flex; gap: 4px; }
-    .segment button { flex: 1; display: flex; flex-direction: column; align-items: center; gap: 5px; border: 1px solid var(--border); border-radius: 7px; background: var(--bg); color: var(--muted); padding: 9px 4px 7px; font-size: 10px; }
-    .segment button.active { border-color: var(--accent); color: var(--accent); box-shadow: inset 0 0 0 .5px var(--accent); }
-    .segment button:hover { background: var(--surface); }
-    svg { flex-shrink: 0; }
-    .row { display: flex; gap: 14px; margin-top: 14px; align-items: center; }
-    .color-field { flex: 1; }
-    .weight-field { width: 82px; }
-    .color-field label, .weight-field label { display: block; font-size: 11px; color: var(--muted); margin-bottom: 6px; }
-    .swatches { display: flex; gap: 7px; align-items: center; }
-    .swatch { width: 21px; height: 21px; border: 3px solid var(--bg); outline: 1px solid transparent; background: var(--swatch); border-radius: 50%; padding: 0; }
-    .swatch.active { outline-color: var(--text); }
-    .stroke-row { margin-top: 10px; display: flex; justify-content: space-between; align-items: center; }
-    #dashed { display: flex; align-items: center; gap: 5px; padding: 5px 8px; border-radius: 5px; border: 1px solid var(--border); background: var(--bg); color: var(--muted); font-size: 10px; }
-    #dashed.active { color: var(--accent); border-color: var(--accent); }
-    .arrows { display: flex; gap: 3px; }
-    .arrows button { border: 0; border-radius: 4px; background: var(--bg); color: var(--muted); padding: 5px 7px; font-size: 10px; }
-    .arrows button.active { background: var(--surface); color: var(--text); }
-    .diagram-fields { margin-top: 13px; display: none; }
-    .diagram-fields.visible { display: block; }
-    .selected-caption { color: var(--muted); font-size: 10px; margin: 0 0 8px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-    .footer-row { display: flex; gap: 8px; align-items: center; }
-    #apply { flex: 1; }
-    #delete { border: 1px solid var(--border); background: var(--bg); color: var(--muted); height: 32px; width: 34px; border-radius: 6px; display: grid; place-items: center; }
-    #delete:hover:enabled { color: #dc2626; }
-    #status { margin: 10px 0 0; color: var(--muted); font-size: 10px; min-height: 28px; line-height: 1.45; }
-    #status.error { color: var(--figma-color-text-danger, #dc2626); }
-    details { font-size: 10px; color: var(--muted); }
-    summary { cursor: pointer; }
-    details p { margin: 8px 0; }
-    #refresh { padding: 4px 0; color: var(--accent); font-size: 10px; }
-    .mode-picker { margin-bottom: 12px; }
-    .mode-picker button { padding: 7px; flex-direction: row; justify-content: center; }
-    .workflow-tabs { margin-top: 14px; }
-    .annotating section:not(#annotation-section) { display: none; }
-    #annotation-section { display: none; }
-    .annotating #annotation-section { display: block; }
-    #plugin-root.annotating #reverse { display: none; }
-    .annotation-hint { padding: 10px 12px; background: var(--surface); border-radius: 6px; margin: 0 0 16px; color: var(--muted); font-size: 11px; }
-    .annotation-fields { display: flex; gap: 12px; margin-top: 14px; }
-    .annotation-fields fig-field { flex: 1; min-width: 0; }
-    .annotation-position { margin-top: 8px; }
-    .annotation-meta { font-size: 11px; color: var(--muted); margin-bottom: 12px; }
-    .meta { display: flex; justify-content: space-between; color: var(--muted); font-size: 10px; margin-top: 10px; }
-    .color-code { width: 84px; margin-top: 8px; }
-    #reverse { border: 1px solid var(--border); border-radius: 6px; background: var(--bg); color: var(--text); padding: 7px; }
-    #plugin-root.compact section:not(#drawing-section), #plugin-root.compact details, #plugin-root.compact .tagline, #plugin-root.compact .steps { display: none; }
-    #plugin-root.compact header { padding: 12px 22px; }
-    #plugin-root.compact fig-content { padding-top: 12px; }
-    #plugin-root.compact #drawing-section { border: 0; margin: 0; padding: 0; }
-    #plugin-root.compact #ports-wrap { display: none; }
-    @media (prefers-reduced-motion: no-preference) { button { transition: background .12s, border-color .12s; } }
-  </style>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<style>
+  :root { color-scheme: light dark; --bg:var(--figma-color-bg,#fff); --surface:var(--figma-color-bg-secondary,#f5f5f7); --hover:var(--figma-color-bg-hover,#ededf0); --text:var(--figma-color-text,#202124); --muted:var(--figma-color-text-secondary,#626570); --border:var(--figma-color-border,#dedfe4); --accent:var(--figma-color-bg-brand,#2563eb); --on-accent:var(--figma-color-text-onbrand,#fff); --selected:var(--figma-color-bg-brand-tertiary,#edf3ff); --danger:var(--figma-color-text-danger,#b42318); --radius:6px; }
+  * { box-sizing:border-box; }
+  html,body { margin:0; height:100%; background:var(--bg); color:var(--text); font:12px/1.5 var(--font-family,Inter,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif); }
+  button,input,textarea { font:inherit; }
+  button { color:inherit; cursor:pointer; }
+  button:disabled { cursor:default; opacity:.46; }
+  [hidden] { display:none !important; }
+  :focus-visible { outline:2px solid var(--accent); outline-offset:2px; }
+  ::selection { background:var(--selected); color:var(--text); }
+  input,textarea { caret-color:var(--accent); }
+  svg { flex-shrink:0; }
+  #plugin-root { height:100%; display:flex; flex-direction:column; }
+  header { flex-shrink:0; border-bottom:1px solid var(--border); }
+  .toolbar { height:52px; padding:0 16px; display:flex; align-items:center; gap:8px; }
+  .brand-icon { color:var(--accent); }
+  h1 { font-size:14px; font-weight:650; letter-spacing:-.2px; margin:0; }
+  .toolbar-space { flex:1; }
+  .icon-button { display:inline-flex; align-items:center; justify-content:center; min-width:30px; height:30px; padding:5px; border:0; border-radius:var(--radius); background:transparent; color:var(--muted); }
+  .icon-button:hover { background:var(--hover); color:var(--text); }
+  .tabs { display:flex; padding:0 16px; gap:20px; }
+  .tabs button { flex:1; display:flex; align-items:center; justify-content:center; gap:7px; padding:10px 4px; background:transparent; border:0; border-bottom:2px solid transparent; color:var(--muted); font-weight:550; }
+  .tabs button[aria-pressed="true"] { border-bottom-color:var(--accent); color:var(--text); }
+  fig-content { display:block; flex:1; min-height:0; overflow:auto; padding:18px; scrollbar-width:thin; scrollbar-color:var(--border) transparent; }
+  h2 { margin:0; font-size:13px; line-height:1.4; font-weight:600; }
+  p { margin:0; }
+  .muted,.help-text { color:var(--muted); }
+  .help-text { font-size:11px; line-height:1.6; }
+  .context { margin-bottom:14px; }
+  .context-heading { display:flex; justify-content:space-between; align-items:center; gap:8px; margin-bottom:5px; }
+  .context p { color:var(--muted); line-height:1.6; }
+  .pill { font-size:10px; padding:2px 6px; border-radius:4px; background:var(--surface); color:var(--muted); white-space:nowrap; }
+  .pill.changed { color:var(--accent); background:var(--selected); }
+  .preview { margin:0 0 16px; border:1px solid var(--border); border-radius:8px; overflow:hidden; background:var(--surface); }
+  .preview svg { display:block; width:100%; height:76px; }
+  .preview-frame { fill:var(--bg); stroke:var(--border); }
+  .preview-label { fill:var(--text); font-size:10px; text-anchor:middle; }
+  .preview-cover { fill:var(--surface); }
+  .section-label { display:block; margin:0 0 7px; font-size:11px; color:var(--muted); }
+  .segments { display:flex; gap:4px; }
+  .segments button { flex:1; min-width:0; min-height:32px; display:flex; align-items:center; justify-content:center; gap:6px; padding:6px 8px; background:var(--bg); border:1px solid var(--border); border-radius:var(--radius); color:var(--muted); }
+  .segments button:hover { background:var(--hover); }
+  .segments button[aria-pressed="true"] { color:var(--text); background:var(--selected); border-color:var(--accent); }
+  .routes { margin-bottom:12px; }
+  .form-row { display:flex; gap:12px; align-items:flex-start; }
+  .form-row > * { flex:1; min-width:0; }
+  .form-row > .narrow { flex:0 0 90px; }
+  fig-field { display:block; margin-bottom:12px; }
+  fig-field > label { display:block; margin-bottom:6px; font-size:11px; color:var(--muted); }
+  input.text-input,input.number-input,textarea.text-input { width:100%; min-height:34px; border:1px solid var(--border); border-radius:var(--radius); background:var(--bg); color:var(--text); padding:7px 9px; }
+  textarea.text-input { display:block; height:116px; min-height:90px; resize:vertical; line-height:1.65; }
+  input::placeholder,textarea::placeholder { color:var(--muted); opacity:1; }
+  input[aria-invalid="true"],textarea[aria-invalid="true"] { border-color:var(--danger); }
+  .optional { color:var(--muted); font-weight:400; margin-left:5px; }
+  .field-error { color:var(--danger); font-size:11px; margin:4px 0 0; }
+  .swatches { display:flex; align-items:center; gap:2px; padding-top:3px; }
+  .swatch { width:30px; height:30px; padding:6px; background:transparent; border:1px solid transparent; border-radius:var(--radius); }
+  .swatch::before { content:""; display:block; width:16px; height:16px; background:var(--swatch); border-radius:50%; border:1px solid var(--border); }
+  .swatch[aria-pressed="true"] { border-color:var(--accent); background:var(--selected); }
+  .inline-label { display:flex; justify-content:space-between; gap:8px; align-items:center; margin-bottom:6px; }
+  .inline-label label { color:var(--muted); font-size:11px; }
+  .inline-label span { color:var(--muted); font-size:10px; font-variant-numeric:tabular-nums; }
+  .disclosure { border-top:1px solid var(--border); margin:4px 0 14px; }
+  summary { display:flex; align-items:center; justify-content:space-between; min-height:36px; cursor:pointer; list-style:none; font-size:11px; }
+  summary::-webkit-details-marker { display:none; }
+  summary::after { content:""; width:6px; height:6px; border-right:1.5px solid var(--muted); border-bottom:1.5px solid var(--muted); transform:rotate(45deg); margin-right:3px; }
+  details[open] > summary::after { transform:rotate(225deg); }
+  .details-content { padding:4px 0 2px; }
+  .text-button { border:0; background:transparent; padding:5px 0; color:var(--accent); font-size:11px; text-align:left; }
+  .text-button:hover { text-decoration:underline; text-underline-offset:3px; }
+  .secondary { min-height:34px; border:1px solid var(--border); border-radius:var(--radius); background:var(--bg); padding:6px 10px; color:var(--text); }
+  .secondary:hover { background:var(--hover); }
+  .primary,fig-button { display:block; min-height:36px; border:0; border-radius:var(--radius); background:var(--accent); color:var(--on-accent); padding:8px 12px; font-weight:550; text-align:center; }
+  .primary:hover:enabled { filter:brightness(.95); }
+  .endpoints { display:flex; gap:8px; align-items:center; margin:10px 0 0; min-width:0; }
+  .endpoint { flex:1; min-width:0; border:1px solid var(--border); border-radius:var(--radius); padding:6px 8px; }
+  .endpoint span { display:block; color:var(--muted); font-size:10px; }
+  .endpoint strong { display:block; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; font-size:11px; font-weight:550; }
+  .endpoint.current { border-color:var(--accent); }
+  .ports { margin:12px 0 0; padding-top:12px; border-top:1px solid var(--border); }
+  .ports .segments button { padding:6px 2px; }
+  .range-selection { display:flex; align-items:center; gap:10px; background:var(--surface); border-radius:var(--radius); padding:10px 12px; margin:12px 0 16px; }
+  .number-badge { display:grid; place-items:center; width:30px; height:30px; border:1px dashed var(--muted); border-radius:5px; font-weight:600; font-variant-numeric:tabular-nums; }
+  .range-selection strong { display:block; font-size:11px; font-weight:550; }
+  .range-selection p { font-size:10px; color:var(--muted); }
+  .position-picker { margin:0 0 14px; }
+  .help-panel { padding-bottom:16px; margin-bottom:16px; border-bottom:1px solid var(--border); }
+  .help-panel h2 { margin-bottom:10px; }
+  .help-panel ol { padding-left:20px; margin:8px 0 12px; color:var(--muted); }
+  .help-panel li { margin-bottom:6px; }
+  .help-panel p { margin-bottom:8px; }
+  kbd { font:inherit; border:1px solid var(--border); border-radius:3px; padding:0 4px; }
+  fig-footer { display:block; flex-shrink:0; padding:12px 18px 14px; border-top:1px solid var(--border); background:var(--bg); }
+  .footer-meta { display:flex; justify-content:space-between; align-items:center; gap:8px; min-height:18px; margin-bottom:8px; font-size:11px; color:var(--muted); }
+  #selection-caption { white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+  .actions { display:flex; gap:8px; }
+  .actions .primary,.actions fig-button { flex:1; }
+  .danger-button { color:var(--danger); }
+  #status { font-size:11px; line-height:1.5; margin-top:8px; color:var(--muted); overflow-wrap:anywhere; }
+  #status.error { color:var(--danger); }
+  #confirm-delete { margin:0 0 10px; padding:10px 12px; border:1px solid var(--border); border-radius:var(--radius); }
+  #confirm-delete p { margin-bottom:8px; font-size:11px; }
+  #confirm-delete .actions button { flex:1; }
+  .connection-error { border:1px solid var(--border); border-radius:var(--radius); padding:12px; margin-bottom:14px; }
+  .compact .full-settings { display:none; }
+  .compact fig-content { padding-top:12px; }
+  .compact .preview { margin-bottom:0; }
+  .compact .preview svg { height:55px; }
+  .compact .context { margin-bottom:8px; }
+  .compact .context p { font-size:11px; }
+  .compact .endpoints { margin-top:6px; }
+  .compact .ports { margin-top:8px; padding-top:8px; }
+  .compact .preview:has(~ .ports:not([hidden])) { display:none; }
+  @media (prefers-reduced-motion:no-preference) { button { transition:background-color 140ms ease-out,border-color 140ms ease-out; } }
+</style>
 </head>
 <body>
 <div id="plugin-root">
-  <header>
-    <div class="brand">
-      <div class="brandmark"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="6" height="6" rx="1.5"/><path d="M6 10v6h11m-3-3 3 3-3 3"/></svg></div>
-      <h1>Click2Arrow</h1><span class="version">v0.3.0</span><button class="ghost" id="compact" aria-label="切換精簡面板" aria-pressed="false">精簡</button>
+<header>
+  <div class="toolbar">
+    <svg class="brand-icon" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="3" width="6" height="6" rx="1.5"/><rect x="15" y="15" width="6" height="6" rx="1.5"/><path d="M9 6h6v12m-3-3 3 3 3-3"/></svg>
+    <h1>Click2Arrow</h1><span class="toolbar-space"></span>
+    <button id="compact" class="icon-button" aria-label="精簡面板" title="精簡面板" aria-pressed="false"><svg width="16" height="16" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.5" aria-hidden="true"><rect x="3" y="3" width="14" height="14" rx="2"/><path d="M3 7h14M6 10h8M6 13h5"/></svg></button>
+    <button id="help" class="icon-button" aria-label="使用說明" title="使用說明" aria-expanded="false" aria-controls="help-panel"><svg width="17" height="17" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" aria-hidden="true"><circle cx="10" cy="10" r="7.5"/><path d="M7.8 7.5a2.3 2.3 0 0 1 4.4 1c0 1.5-2.2 1.5-2.2 3M10 14h.01"/></svg></button>
+  </div>
+  <nav class="tabs" aria-label="工具">
+    <button data-workflow="arrows" aria-pressed="true"><svg width="16" height="16" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.5" aria-hidden="true"><path d="M3 5h7v10h7m-4-3 3 3-3 3"/></svg>流程連線</button>
+    <button data-workflow="annotations" aria-pressed="false"><svg width="16" height="16" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.5" aria-hidden="true"><rect x="2" y="3" width="10" height="14" rx="1" stroke-dasharray="3 2"/><path d="M15 5h3m-3 4h3m-3 4h3"/></svg>範圍註記</button>
+  </nav>
+</header>
+<fig-content id="content">
+  <div id="connection-error" class="connection-error" hidden><h2>尚未連上 Figma</h2><p class="help-text">請重試；若仍無回應，關閉後重新開啟 plugin。</p><button id="retry" class="text-button">重新連線</button></div>
+  <section id="help-panel" class="help-panel" hidden>
+    <h2>在既有畫面上補上流程</h2>
+    <ol><li>按「開始連線」，選取 frame 或 component。</li><li>點物件四邊的起點，再選另一個物件並點終點。</li><li>選取已建立的箭頭，即可修改文字與樣式。</li></ol>
+    <p class="help-text">範圍註記：框選物件，或按 <kbd>R</kbd> 畫矩形，再建立編號外框與旁側備註。</p>
+    <p class="help-text">切換選取時，未儲存草稿會保留到本次 plugin 關閉。按 <kbd>⌘ / Ctrl</kbd> + <kbd>Enter</kbd> 儲存；面板內按 <kbd>Esc</kbd> 取消起點。</p>
+    <p class="help-text">連線只在 plugin 開啟時跟隨物件。註記範圍固定，可調整外框後儲存。節點目前在選取後顯示，尚不支援 hover。</p>
+    <button id="refresh" class="text-button">更新此頁連線位置</button><p class="help-text">Click2Arrow v0.4.0 · 僅在 Figma 文件內儲存</p>
+  </section>
+  <section id="arrows-panel" aria-label="流程連線設定">
+    <div class="context">
+      <div class="context-heading"><h2 id="task-title">連接兩個畫面</h2><span id="task-badge" class="pill">準備開始</span></div>
+      <p id="task-hint">開始後，選取畫布上的 frame 或 component。</p>
+      <div id="endpoints" class="endpoints" hidden><div id="source-endpoint" class="endpoint"><span>起點</span><strong id="source-name">等待選取</strong></div><svg width="15" height="15" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.5" aria-hidden="true"><path d="M2 10h15m-5-5 5 5-5 5"/></svg><div id="target-endpoint" class="endpoint"><span>終點</span><strong id="target-name">等待選取</strong></div></div>
     </div>
-    <p class="tagline">把畫面連起來，把流程說清楚。</p>
-    <div class="segment mode-picker workflow-tabs" aria-label="工具"><button data-workflow="arrows" class="active" aria-pressed="true">流程連線</button><button data-workflow="annotations" aria-pressed="false">範圍註記</button></div>
-  </header>
-  <fig-content>
-    <section id="drawing-section">
-      <div class="segment mode-picker" aria-label="連線點顯示方式"><button data-mode="selection" class="active" aria-pressed="true">選取後顯示</button><button data-mode="visible" aria-pressed="false">顯示可見節點</button></div>
-      <div class="draw-row"><fig-button id="draw" type="submit">Draw</fig-button><button class="ghost" id="cancel">取消起點</button></div>
-      <div class="steps" aria-label="繪製步驟">
-        <span class="step" id="step1"><b>1</b><span id="step1-label">選取物件</span></span><span class="step-divider"></span>
-        <span class="step" id="step2"><b>2</b>點起點</span><span class="step-divider"></span>
-        <span class="step" id="step3"><b>3</b>點終點</span>
-      </div>
-      <p class="hint" id="hint">按 Draw，再選取 frame 或 component。</p>
-      <div class="meta"><span id="anchor-count">選取物件後顯示節點</span><span id="connection-count">0 條連線</span></div>
-      <div id="ports-wrap">
-        <div class="port-grid" aria-label="選擇連線邊">
-          <span></span><button data-port="top" aria-label="上邊連線點">↑</button><span></span>
-          <button data-port="left" aria-label="左邊連線點">←</button><span class="port-center"></span><button data-port="right" aria-label="右邊連線點">→</button>
-          <span></span><button data-port="bottom" aria-label="下邊連線點">↓</button><span></span>
-        </div>
-        <div class="port-name"><strong id="target-name"></strong>可點畫布節點或左側方向鍵</div>
-      </div>
-    </section>
-    <section>
-      <div class="section-head"><h2>連線樣式</h2><span class="eyeline">Connection</span></div>
-      <div class="segment" id="routes">
-        <button data-route="elbow" class="active" aria-pressed="true"><svg width="32" height="21" viewBox="0 0 32 21" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M3 5h13v12h13m-4-4 4 4-4 4"/></svg>直角</button>
-        <button data-route="straight" aria-pressed="false"><svg width="32" height="21" viewBox="0 0 32 21" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M3 11h26m-5-5 5 5-5 5"/></svg>直線</button>
-        <button data-route="curve" aria-pressed="false"><svg width="32" height="21" viewBox="0 0 32 21" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M3 5c17 0 8 12 26 12m-4-4 4 4-4 4"/></svg>曲線</button>
-      </div>
-      <div class="row">
-        <div class="color-field"><label>顏色</label><div class="swatches">
-          <button class="swatch" data-color="#334155" style="--swatch:#334155" aria-label="深灰色" aria-pressed="false"></button>
-          <button class="swatch active" data-color="#2563eb" style="--swatch:#2563eb" aria-label="藍色" aria-pressed="true"></button>
-          <button class="swatch" data-color="#059669" style="--swatch:#059669" aria-label="綠色" aria-pressed="false"></button>
-          <button class="swatch" data-color="#e35b70" style="--swatch:#e35b70" aria-label="粉紅色" aria-pressed="false"></button>
-        </div><div class="color-code"><fig-input-text id="hex" value="#2563eb" aria-label="自訂顏色 HEX"></fig-input-text></div></div>
-        <div class="weight-field"><label for="weight">線寬</label><fig-input-number id="weight" value="2" min="1" max="8"></fig-input-number></div>
-      </div>
-      <div class="stroke-row">
-        <button id="dashed" aria-pressed="false"><svg width="20" height="10" viewBox="0 0 20 10" fill="none" stroke="currentColor" stroke-width="1.5" stroke-dasharray="3 3"><path d="M0 5h20"/></svg>虛線</button>
-        <div class="arrows" aria-label="箭頭方向"><button data-arrows="end" class="active" aria-pressed="true">單向</button><button data-arrows="both" aria-pressed="false">雙向</button><button data-arrows="none" aria-pressed="false">無箭頭</button></div>
-      </div>
-    </section>
-    <section>
-      <div class="section-head"><h2>流程內容</h2><span class="eyeline">Flow content</span></div>
-      <fig-field><label for="label">箭頭文字</label><fig-input-text id="label" value="" placeholder="例如：點擊確認、成功、失敗"></fig-input-text></fig-field>
-      <div class="segment" id="diagrams">
-        <button data-diagram="none" class="active" aria-pressed="true"><svg width="27" height="19" viewBox="0 0 27 19" fill="none" stroke="currentColor" stroke-width="1.4"><path d="M3 9.5h21"/></svg>無圖形</button>
-        <button data-diagram="process" aria-pressed="false"><svg width="27" height="19" viewBox="0 0 27 19" fill="none" stroke="currentColor" stroke-width="1.4"><rect x="3" y="3" width="21" height="13" rx="2"/></svg>Process</button>
-        <button data-diagram="decision" aria-pressed="false"><svg width="27" height="19" viewBox="0 0 27 19" fill="none" stroke="currentColor" stroke-width="1.4"><path d="m13.5 2 11 7.5-11 7.5-11-7.5Z"/></svg>Decision</button>
-        <button data-diagram="terminal" aria-pressed="false"><svg width="27" height="19" viewBox="0 0 27 19" fill="none" stroke="currentColor" stroke-width="1.4"><rect x="3" y="3" width="21" height="13" rx="6.5"/></svg>Start/End</button>
-      </div>
-      <div class="diagram-fields" id="diagram-fields"><fig-field><label for="diagram-text">圖形內文字</label><fig-input-text id="diagram-text" value="" placeholder="例如：是否通過驗證？"></fig-input-text></fig-field></div>
-    </section>
-    <section id="annotation-section">
-      <div class="section-head"><h2>範圍註記</h2><span class="eyeline">Annotation</span></div>
-      <div class="segment mode-picker" aria-label="註記範圍來源"><button data-range="selection" class="active" aria-pressed="true">框選現有物件</button><button data-range="rectangle" aria-pressed="false">轉換範圍矩形</button></div>
-      <p class="annotation-hint" id="annotation-hint">在 Figma 畫布拖曳框選物件，再建立註記。原有畫面會保留。</p>
-      <div class="annotation-meta" id="annotation-meta">下一個編號 #01 · 尚未選取範圍</div>
-      <fig-field><label for="annotation-title">標題（選填）</label><fig-input-text id="annotation-title" value="" placeholder="例如：登入流程" maxlength="80"></fig-input-text></fig-field>
-      <fig-field><label for="annotation-text">文字備註</label><fig-input-text id="annotation-text" multiline value="" placeholder="描述此範圍的操作、規則或注意事項" maxlength="2000" aria-describedby="annotation-hint"></fig-input-text></fig-field>
-      <label>備註位置</label><div class="segment mode-picker annotation-position" aria-label="備註位置"><button data-note-side="left" aria-pressed="false">左側</button><button data-note-side="right" class="active" aria-pressed="true">右側</button></div>
-      <div class="annotation-fields"><fig-field><label for="annotation-color">外框與編號顏色</label><fig-input-text id="annotation-color" value="#d97706" aria-label="註記顏色 HEX"></fig-input-text></fig-field><fig-field><label for="annotation-width">備註寬度</label><fig-input-number id="annotation-width" value="240" min="160" max="480"></fig-input-number></fig-field></div>
-      <fig-field id="annotation-padding-field"><label for="annotation-padding">外框留白</label><fig-input-number id="annotation-padding" value="16" min="0" max="100"></fig-input-number></fig-field>
-      <p class="hint">編號依頁面自動遞增。外框、編號與備註為一組，可移動整組；文字也能直接在畫布編輯。</p>
-    </section>
-    <details><summary>操作提示</summary><div id="arrow-help"><p>預設只在選取物件後顯示該物件的四邊節點。「顯示可見節點」需手動開啟，每次最多 40 個物件。</p><p>Figma Design 尚未開放既有物件的畫布 hover 事件；本版本尚未實作 hover 才顯示節點。完成一條箭頭後，可繼續繪製下一條。選取既有箭頭可修改文字與樣式。</p><p>Plugin 開啟時，連線會隨 frame 移動。重新開啟可更新已保存的連線。Decision 圖形也可作為新連線的起點。</p><button class="ghost" id="refresh">更新連線位置</button></div><div id="annotation-help" hidden><p>「框選現有物件」使用選取物件的外圍範圍。「轉換範圍矩形」使用 R 畫出的矩形，並將選取的矩形替換為虛線外框；不會修改範圍內的其他物件。</p><p>註記範圍為固定位置，不會自動跟隨原有物件。可直接拖曳外框邊緣調整大小，再按「儲存註記」更新旁邊的備註位置。選取註記內的任一圖層，即可編輯整組註記。</p></div></details>
-  </fig-content>
-  <fig-footer>
-    <p class="selected-caption" id="selected-caption">新箭頭將使用上方設定</p>
-    <div class="footer-row"><button id="reverse" disabled title="交換起點與終點">反轉</button><fig-button id="apply" disabled>Apply changes</fig-button><button id="delete" disabled aria-label="刪除選取的箭頭"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M4 7h16M9 7V4h6v3M7 7l1 13h8l1-13M10 10v7m4-7v7"/></svg></button></div>
-    <p id="status" role="status" aria-live="polite">準備開始。按 Draw 快速連接兩個物件。</p>
-  </fig-footer>
+    <div class="preview" aria-label="連線樣式預覽"><svg viewBox="0 0 340 76" role="img" aria-label="連線樣式預覽"><rect class="preview-frame" x="13" y="28" width="38" height="30" rx="4"/><path d="M21 36h20M21 42h13" stroke="var(--border)"/><rect class="preview-frame" x="289" y="28" width="38" height="30" rx="4"/><path d="M297 36h20M297 42h13" stroke="var(--border)"/><path id="preview-path" d="M51 43H289" fill="none" stroke="#2563eb" stroke-width="2"/><path id="preview-head" d="m282 39 7 4-7 4" fill="none" stroke="#2563eb" stroke-width="2"/><path id="preview-start" d="m58 39-7 4 7 4" fill="none" stroke="#2563eb" stroke-width="2" hidden/><rect id="preview-shape" x="133" y="28" width="74" height="30" rx="4" fill="var(--bg)" stroke="#2563eb" hidden/><path id="preview-diamond" d="m170 19 42 24-42 24-42-24Z" fill="var(--bg)" stroke="#2563eb" hidden/><text id="preview-diagram-text" class="preview-label" x="170" y="47"></text><text id="preview-label" class="preview-label" x="170" y="15"></text></svg></div>
+    <div id="ports" class="ports" hidden><span id="ports-label" class="section-label">選擇連線邊</span><div class="segments" aria-label="連線邊"><button data-port="top">上邊</button><button data-port="right">右邊</button><button data-port="bottom">下邊</button><button data-port="left">左邊</button></div></div>
+    <div class="full-settings">
+      <span class="section-label">路徑</span><div class="segments routes" aria-label="路徑"><button data-route="elbow" aria-pressed="true"><svg width="23" height="16" viewBox="0 0 24 18" fill="none" stroke="currentColor" stroke-width="1.5" aria-hidden="true"><path d="M2 4h10v10h10m-4-4 4 4-4 4"/></svg>直角</button><button data-route="straight" aria-pressed="false"><svg width="23" height="16" viewBox="0 0 24 18" fill="none" stroke="currentColor" stroke-width="1.5" aria-hidden="true"><path d="M2 9h20m-4-4 4 4-4 4"/></svg>直線</button><button data-route="curve" aria-pressed="false"><svg width="23" height="16" viewBox="0 0 24 18" fill="none" stroke="currentColor" stroke-width="1.5" aria-hidden="true"><path d="M2 4c12 0 8 10 20 10m-4-4 4 4-4 4"/></svg>曲線</button></div>
+      <div class="form-row"><fig-field><label for="hex">顏色</label><fig-input-text id="hex" value="#2563eb" maxlength="7" aria-describedby="hex-error"></fig-input-text><p id="hex-error" class="field-error" hidden>輸入完整 HEX，例如 #2563EB。</p></fig-field><fig-field class="narrow"><label for="weight">線寬 · px</label><fig-input-number id="weight" value="2" min="1" max="8" aria-describedby="weight-error"></fig-input-number><p id="weight-error" class="field-error" hidden>範圍為 1–8。</p></fig-field></div>
+      <details class="disclosure" id="appearance"><summary>更多線條設定<span id="appearance-summary" class="muted">單向 · 實線</span></summary><div class="details-content">
+        <div class="swatches" aria-label="常用顏色"><button class="swatch" data-color="#334155" style="--swatch:#334155" aria-label="深灰色" aria-pressed="false"></button><button class="swatch" data-color="#2563eb" style="--swatch:#2563eb" aria-label="藍色" aria-pressed="true"></button><button class="swatch" data-color="#059669" style="--swatch:#059669" aria-label="綠色" aria-pressed="false"></button><button class="swatch" data-color="#e35b70" style="--swatch:#e35b70" aria-label="粉紅色" aria-pressed="false"></button></div>
+        <div class="segments" style="margin:10px 0" aria-label="箭頭方向"><button data-arrows="end" aria-pressed="true">單向</button><button data-arrows="both" aria-pressed="false">雙向</button><button data-arrows="none" aria-pressed="false">無箭頭</button></div><button id="dashed" class="secondary" aria-pressed="false">使用虛線</button>
+        <div style="margin-top:14px"><span class="section-label">連線點顯示方式</span><div class="segments" aria-label="連線點顯示方式"><button data-mode="selection" aria-pressed="true">選取後顯示</button><button data-mode="visible" aria-pressed="false">全部可見物件</button></div><p class="help-text" style="margin:7px 0">預設只顯示選取物件的節點。「全部可見物件」最多顯示 40 個物件。</p></div>
+      </div></details>
+      <fig-field><label for="label">箭頭文字<span class="optional">選填</span></label><fig-input-text id="label" value="" placeholder="例如：確認送出、驗證成功" maxlength="180"></fig-input-text></fig-field>
+      <details class="disclosure" id="diagram-details"><summary>中間流程圖形<span id="diagram-summary" class="muted">無圖形</span></summary><div class="details-content"><div class="segments" aria-label="中間流程圖形"><button data-diagram="none" aria-pressed="true">無</button><button data-diagram="process" aria-pressed="false">程序</button><button data-diagram="decision" aria-pressed="false">判斷</button><button data-diagram="terminal" aria-pressed="false">起訖</button></div><fig-field id="diagram-field" hidden style="margin-top:12px"><label for="diagram-text">圖形內文字</label><fig-input-text id="diagram-text" value="" maxlength="120" placeholder="例如：是否通過驗證？"></fig-input-text></fig-field></div></details>
+    </div>
+  </section>
+  <section id="annotations-panel" aria-label="範圍註記設定" hidden>
+    <div class="context-heading" style="margin-bottom:12px"><h2 id="annotation-heading">新增範圍註記</h2><button id="new-annotation" class="text-button" hidden>新增另一個</button></div>
+    <div id="range-picker" class="segments" aria-label="註記範圍來源"><button data-range="selection" aria-pressed="true">框選物件</button><button data-range="rectangle" aria-pressed="false">轉換矩形</button></div>
+    <div class="range-selection"><div id="annotation-number" class="number-badge">01</div><div><strong id="range-title">在畫布框選要註記的物件</strong><p id="range-description">依選取範圍建立虛線外框</p></div></div>
+    <fig-field><label for="annotation-title">標題<span class="optional">選填</span></label><fig-input-text id="annotation-title" value="" maxlength="80" placeholder="例如：登入流程"></fig-input-text></fig-field>
+    <fig-field><div class="inline-label"><label for="annotation-text">文字備註</label><span id="note-count">0 / 2000</span></div><fig-input-text id="annotation-text" multiline value="" maxlength="2000" placeholder="說明這個範圍的操作、規則或注意事項…" aria-describedby="note-error"></fig-input-text><p id="note-error" class="field-error" hidden>請填寫文字備註。</p></fig-field>
+    <div class="position-picker"><span class="section-label">備註位置</span><div class="segments" aria-label="備註位置"><button data-note-side="left" aria-pressed="false"><svg width="28" height="18" viewBox="0 0 28 18" fill="none" stroke="currentColor" aria-hidden="true"><path d="M2 5h8M2 9h8M2 13h6"/><rect x="14" y="2" width="12" height="14" rx="1" stroke-dasharray="2 2"/></svg>左側</button><button data-note-side="right" aria-pressed="true"><svg width="28" height="18" viewBox="0 0 28 18" fill="none" stroke="currentColor" aria-hidden="true"><rect x="2" y="2" width="12" height="14" rx="1" stroke-dasharray="2 2"/><path d="M18 5h8M18 9h8M18 13h6"/></svg>右側</button></div></div>
+    <details class="disclosure"><summary>外框與備註設定<span class="muted">顏色、尺寸</span></summary><div class="details-content"><div class="form-row"><fig-field><label for="annotation-color">顏色</label><fig-input-text id="annotation-color" value="#d97706" maxlength="7" aria-describedby="annotation-color-error"></fig-input-text><p id="annotation-color-error" class="field-error" hidden>輸入完整 HEX，例如 #D97706。</p></fig-field><fig-field class="narrow"><label for="annotation-width">備註寬度 · px</label><fig-input-number id="annotation-width" value="240" min="160" max="480" aria-describedby="annotation-width-error"></fig-input-number><p id="annotation-width-error" class="field-error" hidden>範圍為 160–480。</p></fig-field></div><fig-field id="annotation-padding-field"><label for="annotation-padding">外框留白 · px</label><fig-input-number id="annotation-padding" value="16" min="0" max="100" aria-describedby="annotation-padding-error"></fig-input-number><p id="annotation-padding-error" class="field-error" hidden>範圍為 0–100。</p></fig-field><p class="help-text">調整畫布上的外框後，按「儲存註記」更新備註位置。</p></div></details>
+  </section>
+</fig-content>
+<fig-footer>
+  <div class="footer-meta"><span id="selection-caption">新連線</span><span id="save-state">正在連線…</span></div>
+  <div id="confirm-delete" hidden><p id="delete-description">刪除這組註記？原有畫面會保留。</p><div class="actions"><button id="keep" class="secondary">保留</button><button id="confirm" class="secondary danger-button">確認刪除</button></div></div>
+  <div class="actions"><button id="delete" class="icon-button danger-button" aria-label="刪除選取項目" title="刪除選取項目" hidden><svg width="16" height="16" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" aria-hidden="true"><path d="M3 5h14M7 5V3h6v2M5 5l1 12h8l1-12M8 8v6m4-6v6"/></svg></button><button id="reverse" class="secondary" hidden>反轉</button><button id="cancel" class="secondary" hidden>取消起點</button><fig-button id="primary" disabled>開始連線</fig-button></div>
+  <p id="status" role="status" aria-live="polite">正在取得 Figma 的選取狀態…</p>
+</fig-footer>
 </div>
 <script>
   const $ = id => document.getElementById(id);
+  // Match a per-panel nonce, because native hosts may dispatch MessageEvents
+  // without a parent WindowProxy. The nonce is not persisted in the document.
+  const channel = Array.from(crypto.getRandomValues(new Uint8Array(16)), n => n.toString(16).padStart(2, '0')).join('');
   const post = message => parent.postMessage({ pluginMessage: message }, '*');
-  let drawing = false, busy = false, compact = false, dirty = false;
-  let workflow = 'arrows', rangeMode = 'selection', noteSide = 'right', annotationId = null, annotationDirty = false, lastAnnotation = null, uiState = null;
-  let settings = { route: 'elbow', color: '#2563eb', weight: 2, arrows: 'end', dashed: false, label: '', diagram: 'none', diagramText: '' };
-  function readStyle() { return { ...settings, color: String($('hex').value || settings.color).trim(), weight: Number($('weight').value || 2), label: String($('label').value || '').slice(0, 180), diagramText: String($('diagram-text').value || '').slice(0, 120) }; }
-  function active(attribute, value) {
-    document.querySelectorAll('[' + attribute + ']').forEach(b => { const on = b.getAttribute(attribute) === value; b.classList.toggle('active', on); b.setAttribute('aria-pressed', String(on)); });
+  const defaults = { route:'elbow', color:'#2563eb', weight:2, arrows:'end', dashed:false, label:'', diagram:'none', diagramText:'' };
+  const noteDefaults = { title:'', text:'', color:'#d97706', position:'right', padding:16, noteWidth:240 };
+  let state = null, workflow = 'arrows', rangeMode = 'selection', compact = false, dirty = false, baseline = '', currentKey = '', editingId = null;
+  let style = {...defaults}, noteSide = 'right', pending = null, requestNumber = 0, feedbackSequence = -1, readyTimer;
+  const drafts = new Map();
+  const active = (attr, value) => document.querySelectorAll('['+attr+']').forEach(b => b.setAttribute('aria-pressed', String(b.getAttribute(attr) === value)));
+  const text = (id, value) => { $(id).textContent = value; };
+  function notice(message, error = false) { text('status', message); $('status').classList.toggle('error', error); }
+  function readStyle() { return {...style, color:String($('hex').value).trim(), weight:Number($('weight').value), label:String($('label').value || '').slice(0,180), diagramText:String($('diagram-text').value || '').slice(0,120)}; }
+  function readNote() { return {title:String($('annotation-title').value || '').slice(0,80), text:String($('annotation-text').value || '').slice(0,2000), color:String($('annotation-color').value).trim(), position:noteSide, padding:Number($('annotation-padding').value), noteWidth:Number($('annotation-width').value)}; }
+  const values = () => workflow === 'annotations' ? readNote() : readStyle();
+  function remember() { if (!currentKey) return; if (dirty) drafts.set(currentKey, {value:values(), baseline}); else drafts.delete(currentKey); }
+  function loadValues(value) {
+    if (workflow === 'arrows') {
+      style = {...defaults, ...value}; $('hex').value = style.color; $('weight').value = style.weight; $('label').value = style.label; $('diagram-text').value = style.diagramText;
+      for (const key of ['route','color','arrows','diagram']) active('data-'+key, style[key]);
+      $('dashed').setAttribute('aria-pressed', String(style.dashed));
+    } else {
+      const n = {...noteDefaults, ...value}; $('annotation-title').value=n.title; $('annotation-text').value=n.text; $('annotation-color').value=n.color; $('annotation-width').value=n.noteWidth; $('annotation-padding').value=n.padding; noteSide=n.position; active('data-note-side',noteSide);
+    }
   }
-  function syncControls(value) {
-    settings = { ...value }; active('data-route', settings.route); active('data-color', settings.color); active('data-arrows', settings.arrows); active('data-diagram', settings.diagram);
-    $('hex').value = settings.color; $('weight').value = settings.weight; $('label').value = settings.label; $('diagram-text').value = settings.diagramText;
-    $('dashed').classList.toggle('active', settings.dashed); $('dashed').setAttribute('aria-pressed', String(settings.dashed));
-    $('diagram-fields').classList.toggle('visible', settings.diagram !== 'none');
+  function fieldError(id, valid) { $(id).setAttribute('aria-invalid', String(!valid)); $(id+'-error').hidden = valid; return valid; }
+  function validStyle(show = true) {
+    const s=readStyle(), color=/^#[0-9a-f]{6}$/i.test(s.color), weight=Number.isFinite(s.weight) && s.weight>=1 && s.weight<=8 && String($('weight').value).trim()!=='';
+    if (show) {fieldError('hex',color);fieldError('weight',weight);} return color && weight;
   }
-  function validStyle() { const valid = /^#[0-9a-f]{6}$/i.test(readStyle().color); $('hex').setAttribute('aria-invalid', String(!valid)); if (!valid) { $('status').textContent = '顏色格式請使用 #RRGGBB，例如 #2563eb。'; $('status').classList.add('error'); } return valid; }
-  function readAnnotation() { return { title: String($('annotation-title').value || '').slice(0, 80), text: String($('annotation-text').value || '').slice(0, 2000), color: String($('annotation-color').value || '').trim(), position: noteSide, padding: Number($('annotation-padding').value), noteWidth: Number($('annotation-width').value) }; }
-  function validAnnotation() { const o = readAnnotation(); return !!o.text.trim() && /^#[0-9a-f]{6}$/i.test(o.color) && Number.isFinite(o.noteWidth) && o.noteWidth >= 160 && o.noteWidth <= 480 && Number.isFinite(o.padding) && o.padding >= 0 && o.padding <= 100; }
-  function updateAnnotationAction() {
-    if (workflow !== 'annotations' || !uiState) return;
-    const a = uiState.annotation, canCreate = rangeMode === 'rectangle' ? uiState.annotationCanConvert : uiState.annotationCanCreate;
-    $('apply').textContent = a ? '儲存註記' : '建立註記'; $('apply').disabled = busy || !validAnnotation() || !(a ? a.editable : canCreate);
-    $('delete').disabled = busy || !a || !a.editable; $('delete').setAttribute('aria-label', '刪除選取的範圍註記');
-    document.querySelectorAll('[data-range]').forEach(b => b.disabled = !!a || busy);
-    $('annotation-padding-field').hidden = !!a || rangeMode === 'rectangle';
-    $('annotation-hint').textContent = a ? '修改文字或樣式後，按「儲存註記」。直接調整外框後也可儲存，更新備註位置。' : rangeMode === 'rectangle' ? '先點畫布，按 R 拖曳矩形，再選取它。建立註記會替換該矩形；範圍內的其他物件保持原樣。' : '在 Figma 畫布拖曳框選物件，再建立註記。原有畫面會保留。';
-    $('annotation-meta').textContent = a ? '正在編輯 #' + String(a.number).padStart(2, '0') : '下一個編號 #' + String(uiState.annotationNext || 1).padStart(2, '0') + ' · ' + (uiState.annotationSelectionCount ? '已選取 ' + uiState.annotationSelectionCount + ' 個物件' : '尚未選取範圍');
+  function validNote(show = true) {
+    const n=readNote(), color=/^#[0-9a-f]{6}$/i.test(n.color), width=Number.isFinite(n.noteWidth) && n.noteWidth>=160 && n.noteWidth<=480;
+    const padding=rangeMode==='rectangle' || !!editingId || Number.isFinite(n.padding) && n.padding>=0 && n.padding<=100 && String($('annotation-padding').value).trim()!=='';
+    if (show) {fieldError('annotation-color',color);fieldError('annotation-width',width);fieldError('annotation-padding',padding);}
+    return !!n.text.trim() && color && width && padding;
   }
-  function annotationChanged() { annotationDirty = true; updateAnnotationAction(); $('annotation-color').setAttribute('aria-invalid', String(!/^#[0-9a-f]{6}$/i.test(readAnnotation().color))); $('status').textContent = annotationId ? '尚未儲存：按「儲存註記」。' : '選取範圍並填寫備註後，按「建立註記」。'; $('status').classList.remove('error'); }
-  function syncAnnotation(o) { $('annotation-title').value = o.title; $('annotation-text').value = o.text; $('annotation-color').value = o.color; $('annotation-width').value = o.noteWidth; $('annotation-padding').value = o.padding; noteSide = o.position; active('data-note-side', noteSide); }
-  function changed() { if (!validStyle()) return; settings = readStyle(); dirty = true; post({ type: 'style', style: settings }); $('status').textContent = editingId ? '尚未套用：按 Apply changes 儲存。' : '新連線將使用這組設定。'; $('status').classList.remove('error'); }
-  for (const key of ['route', 'color', 'arrows', 'diagram']) {
-    document.querySelectorAll('[data-' + key + ']').forEach(b => b.addEventListener('click', () => {
-      settings[key] = b.getAttribute('data-' + key); if (key === 'color') $('hex').value = settings.color; active('data-' + key, settings[key]);
-      $('diagram-fields').classList.toggle('visible', settings.diagram !== 'none'); changed();
-    }));
+  function preview() {
+    const s=readStyle(), color=/^#[0-9a-f]{6}$/i.test(s.color)?s.color:defaults.color, weight=Math.max(1,Math.min(5,s.weight||2));
+    const line=$('preview-path'); line.setAttribute('d',s.route==='elbow'?'M51 43H103V53H237V43H289':s.route==='curve'?'M51 43C115 5 225 76 289 43':'M51 43H289');
+    line.setAttribute('stroke-dasharray',s.dashed?'5 4':'');
+    ['preview-path','preview-head','preview-start','preview-shape','preview-diamond'].forEach(id=>{$(id).setAttribute('stroke',color);$(id).setAttribute('stroke-width',String(weight));});
+    $('preview-head').toggleAttribute('hidden',s.arrows==='none');$('preview-start').toggleAttribute('hidden',s.arrows!=='both');
+    $('preview-shape').toggleAttribute('hidden',!['process','terminal'].includes(s.diagram));$('preview-diamond').toggleAttribute('hidden',s.diagram!=='decision');$('preview-shape').setAttribute('rx',s.diagram==='terminal'?'15':'4');
+    const labels={none:'無圖形',process:'程序',decision:'判斷',terminal:'起訖'};
+    text('preview-diagram-text',s.diagram==='none'?'':(s.diagramText||labels[s.diagram]).slice(0,10));text('preview-label',s.label.slice(0,28));
+    text('diagram-summary',labels[s.diagram]);$('diagram-field').hidden=s.diagram==='none';
+    text('appearance-summary',({end:'單向',both:'雙向',none:'無箭頭'}[s.arrows])+' · '+(s.dashed?'虛線':'實線'));
+    text('dashed',s.dashed?'虛線已開啟':'使用虛線');
   }
-  $('dashed').addEventListener('click', () => { settings.dashed = !settings.dashed; $('dashed').classList.toggle('active', settings.dashed); $('dashed').setAttribute('aria-pressed', String(settings.dashed)); changed(); });
-  ['weight', 'label', 'diagram-text', 'hex'].forEach(id => $(id).addEventListener('change', changed));
-  $('draw').addEventListener('click', () => { if (!busy && (drawing || validStyle())) post(drawing ? { type: 'stop' } : { type: 'start', style: readStyle() }); });
-  $('cancel').addEventListener('click', () => post({ type: 'cancel' }));
-  $('apply').addEventListener('click', () => { if ($('apply').disabled || busy) return; if (workflow === 'annotations') { if (validAnnotation()) { annotationDirty = false; post(annotationId ? { type: 'annotation-apply', options: readAnnotation() } : { type: 'annotation-create', mode: rangeMode, options: readAnnotation() }); } } else if (validStyle()) { dirty = false; post({ type: 'apply', style: readStyle() }); } });
-  $('delete').addEventListener('click', () => { if (!$('delete').disabled && !busy) post({ type: workflow === 'annotations' ? 'annotation-delete' : 'delete' }); });
-  $('reverse').addEventListener('click', () => { if (!busy && !$('reverse').disabled) post({ type: 'reverse' }); });
-  $('compact').addEventListener('click', () => { compact = !compact; $('plugin-root').classList.toggle('compact', compact); $('compact').textContent = compact ? '展開' : '精簡'; $('compact').setAttribute('aria-pressed', String(compact)); post({ type: 'compact', value: compact }); });
-  document.querySelectorAll('[data-mode]').forEach(b => b.addEventListener('click', () => post({ type: 'anchors', mode: b.getAttribute('data-mode') })));
-  document.querySelectorAll('[data-workflow]').forEach(b => b.addEventListener('click', () => { if (!busy) post({ type: 'workflow', value: b.getAttribute('data-workflow') }); }));
-  document.querySelectorAll('[data-range]').forEach(b => b.addEventListener('click', () => { if (!busy && !annotationId) { rangeMode = b.getAttribute('data-range'); active('data-range', rangeMode); updateAnnotationAction(); } }));
-  document.querySelectorAll('[data-note-side]').forEach(b => b.addEventListener('click', () => { noteSide = b.getAttribute('data-note-side'); active('data-note-side', noteSide); annotationChanged(); }));
-  ['annotation-title', 'annotation-text', 'annotation-color', 'annotation-width', 'annotation-padding'].forEach(id => { $(id).addEventListener('input', annotationChanged); $(id).addEventListener('change', annotationChanged); });
-  $('refresh').addEventListener('click', () => post({ type: 'refresh' }));
-  document.querySelectorAll('[data-port]').forEach(b => b.addEventListener('click', () => { if (!busy) post({ type: 'port', side: b.getAttribute('data-port') }); }));
-  document.addEventListener('keydown', e => { if (e.key === 'Escape') { e.preventDefault(); post({ type: 'cancel' }); } });
-  let editingId = null, lastStyle = null;
-  window.addEventListener('message', event => {
-    if (event.source !== parent) return;
-    const m = event.data && event.data.pluginMessage;
-    if (!m || m.type !== 'state') return;
-    uiState = m; drawing = m.drawing; busy = m.busy; workflow = m.workflow || 'arrows';
-    $('plugin-root').classList.toggle('annotating', workflow === 'annotations'); active('data-workflow', workflow);
-    $('arrow-help').hidden = workflow === 'annotations'; $('annotation-help').hidden = workflow !== 'annotations';
-    $('compact').hidden = workflow === 'annotations';
-    if (workflow === 'annotations' && compact) { compact = false; $('plugin-root').classList.remove('compact'); $('compact').textContent = '精簡'; $('compact').setAttribute('aria-pressed', 'false'); post({ type: 'compact', value: false }); }
-    $('plugin-root').classList.toggle('drawing', drawing);
-    $('draw').textContent = drawing ? 'Stop drawing' : 'Draw'; $('draw').disabled = busy;
-    $('reverse').disabled = !m.editing || busy;
-    active('data-mode', m.anchorMode); $('step1-label').textContent = m.anchorMode === 'visible' ? '顯示節點' : '選取物件';
-    $('anchor-count').textContent = drawing ? (m.anchorCount || 0) + ' 個物件' + (m.anchorLimit ? ' · 已達顯示上限' : '') : m.anchorMode === 'visible' ? '免選取物件' : '選取物件後顯示節點';
-    $('connection-count').textContent = (m.connectionCount || 0) + ' 條連線';
-    $('apply').disabled = !m.editing || busy; $('delete').disabled = !m.editing || busy; $('cancel').disabled = busy;
-    $('apply').textContent = 'Apply changes'; $('delete').setAttribute('aria-label', '刪除選取的箭頭');
-    $('ports-wrap').classList.toggle('visible', drawing && !!m.target); $('target-name').textContent = m.target ? m.target.name : '';
-    $('step1').classList.toggle('current', drawing && !m.target && !m.source);
-    $('step2').classList.toggle('current', drawing && !!m.target && !m.source);
-    $('step3').classList.toggle('current', drawing && !!m.source);
-    $('hint').textContent = m.anchorMode === 'visible' ? (!drawing ? '按 Draw，直接點物件的起點和終點。' : m.source ? '起點已設定。直接點另一個物件的終點。' : '直接點畫布上的連線點，設定起點。') : !drawing ? '按 Draw，再選取 frame 或 component。' : m.source ? '起點已設定。選取另一個物件，再點終點。' : m.target ? '點畫布上的四邊連線點之一，設定起點。' : '在 Figma 畫布選取物件，顯示四邊連線點。';
-    $('selected-caption').textContent = m.editing ? m.editing.name : '新箭頭將使用上方設定';
-    if (m.message) { $('status').textContent = m.message; $('status').classList.toggle('error', !!m.error); }
-    const id = m.editing ? m.editing.id : null;
-    if (m.style && (id !== editingId || lastStyle === null || !dirty && JSON.stringify(m.style) !== lastStyle)) { syncControls(m.style); dirty = false; lastStyle = JSON.stringify(m.style); }
-    editingId = id;
-    const a = m.annotation, aid = a ? a.id : null;
-    if (a && (aid !== annotationId || !annotationDirty && JSON.stringify(a.options) !== lastAnnotation)) { syncAnnotation(a.options); annotationDirty = false; lastAnnotation = JSON.stringify(a.options); }
-    else if (!a && annotationId) { $('annotation-title').value = ''; $('annotation-text').value = ''; annotationDirty = false; lastAnnotation = null; }
-    annotationId = aid;
-    if (workflow === 'annotations') { $('selected-caption').textContent = a ? a.name : '建立編號外框與旁側備註'; updateAnnotationAction(); }
+  function render() {
+    const locked=!state || state.busy || !!pending, annotation=workflow==='annotations', editing=!!editingId;
+    $('plugin-root').classList.toggle('compact',compact && !annotation);$('arrows-panel').hidden=annotation;$('annotations-panel').hidden=!annotation;active('data-workflow',workflow);
+    $('compact').hidden=annotation;$('compact').setAttribute('aria-pressed',String(compact));$('compact').setAttribute('aria-label',compact?'展開面板':'精簡面板');$('compact').title=compact?'展開面板':'精簡面板';
+    document.querySelectorAll('button,fig-button,input,textarea,fig-input-text,fig-input-number').forEach(b=>{if(!['help','retry'].includes(b.id)) b.disabled=locked;});
+    $('primary').disabled=locked;$('delete').hidden=!editing;$('reverse').hidden=annotation || !editing;$('cancel').hidden=annotation || !state?.source;
+    $('ports').hidden=annotation || !state?.drawing || !state?.target;
+    text('save-state',!state?'連線中':locked?'處理中…':dirty?(editing?'尚未儲存':'草稿'):editing?'已儲存':annotation?'新註記':(state.connectionCount||0)+' 條連線');
+    if (annotation) {
+      const a=state?.annotation, count=state?.annotationSelectionCount||0, number=a?.number||state?.annotationNext||1;
+      text('annotation-number',String(number).padStart(2,'0'));text('annotation-heading',a?'編輯註記 #'+String(number).padStart(2,'0'):'新增範圍註記');
+      $('new-annotation').hidden=!a;$('range-picker').hidden=!!a;$('annotation-padding-field').hidden=!!a || rangeMode==='rectangle';
+      text('note-count',readNote().text.length+' / 2000');
+      text('range-title',a?'範圍已建立':count?(rangeMode==='rectangle'?'已選取範圍矩形':'已選取 '+count+' 個物件'):rangeMode==='rectangle'?'先按 R，在畫布畫出矩形':'在畫布框選要註記的物件');
+      const bounds=state?.range;const dimensions=bounds?Math.round(bounds.width)+' × '+Math.round(bounds.height)+' px':'';
+      text('range-description',a?'調整外框後儲存，可更新備註位置':rangeMode==='rectangle'?(state?.annotationCanConvert?'將替換所選矩形 · '+dimensions:count?'請選取一個可編輯的獨立矩形':'選取矩形後，再填寫文字備註'):count?dimensions+' · 保留原有物件':'依選取範圍建立虛線外框');
+      text('selection-caption',a?'註記 #'+String(number).padStart(2,'0'):rangeMode==='rectangle'?'矩形將轉換為註記':'外框、編號與旁側備註');
+      text('primary',pending?.type==='annotation-create'?'建立中…':pending?.type==='annotation-apply'?'儲存中…':a?'儲存註記':'建立註記');
+      const canCreate=rangeMode==='rectangle'?state?.annotationCanConvert:state?.annotationCanCreate;
+      $('primary').disabled=locked || !validNote() || !(a?a.editable:canCreate);$('delete').disabled=locked || !a?.editable;
+      if (!locked && !a && !count) notice(rangeMode==='rectangle'?'點畫布後按 R，拖曳出需要註記的範圍。':'先在畫布框選物件，再填寫備註。');
+      else if (!locked && a && !a.editable) notice('請將註記移至頁面最上層並解除鎖定，再編輯。',true);
+      else if (!locked && !readNote().text.trim()) notice(editing?'備註不可留空，請補上文字後儲存。':'填寫文字備註後即可建立。');
+      else if (!locked && !validNote(false)) notice('請修正標示的顏色或尺寸，再儲存。',true);
+      else if (!locked && !a && count && !canCreate) notice(rangeMode==='rectangle'?'請選取一個獨立矩形；鎖定、元件或自動排版內的矩形無法轉換。':'請框選 1 至 100 個原有物件。',true);
+    } else {
+      text('task-title',state?.drawing?(state.source?'選擇終點':'選擇起點'):editing?'編輯這條連線':'連接兩個畫面');
+      text('task-badge',state?.drawing?'連線中':editing?'編輯模式':'準備開始');$('task-badge').classList.toggle('changed',!!state?.drawing);
+      text('task-hint',state?.drawing?(state.target?'點畫布上的節點，或在下方選擇連線邊。':state.anchorMode==='visible'?'點物件四邊的節點；完成後可接著畫下一條。':state.source?'選取另一個物件，再點終點。':'選取 frame、component 或 instance，顯示四邊節點。'):editing?'調整樣式或文字，再儲存變更。':'開始後，選取畫布上的 frame 或 component。');
+      $('endpoints').hidden=!state?.drawing;text('source-name',state?.source?(state.sourceName||'起點已設定')+' · '+({top:'上邊',right:'右邊',bottom:'下邊',left:'左邊'}[state.source.side]||''):state?.target?.name||'等待選取');text('target-name',state?.source?state?.target?.name||'等待選取':'等待選取');
+      $('source-endpoint').classList.toggle('current',!state?.source);$('target-endpoint').classList.toggle('current',!!state?.source);text('ports-label',(state?.target?.name||'物件')+' · '+(state?.source?'選擇終點邊':'選擇起點邊'));
+      text('selection-caption',editing?state.editing.name:state?.drawing?'完成後可繼續畫下一條':'新連線');
+      text('primary',pending?.type==='apply'?'儲存中…':state?.drawing?'結束連線':editing?'儲存變更':'開始連線');
+      $('primary').disabled=locked || !state?.drawing && (!validStyle() || editing && !dirty);
+      preview();
+      if (!locked && !validStyle(false)) notice('請修正標示的顏色或線寬，再繼續。',true);
+    }
+    if (locked && pending) $('primary').setAttribute('aria-busy','true');else $('primary').removeAttribute('aria-busy');
+  }
+  function changed() {
+    dirty=JSON.stringify(values())!==baseline;remember();
+    if (workflow==='annotations') {text('note-count',readNote().text.length+' / 2000');$('note-error').hidden=!!readNote().text.trim();}
+    else if (validStyle(false) && !editingId) post({type:'style',style:readStyle()});
+    notice(editingId?'變更尚未儲存。':'設定將套用至下一個'+(workflow==='annotations'?'註記。':'連線。'));render();
+  }
+  function send(type, payload={}) {
+    if (pending || !state || state.busy) return;
+    remember();pending={type,key:currentKey,value:values(),requestId:String(++requestNumber)};
+    $('confirm-delete').hidden=true;post({type,...payload,requestId:pending.requestId});render();
+  }
+  function submit() {
+    if ($('primary').disabled) return;
+    if (workflow==='annotations') {if(validNote()) send(editingId?'annotation-apply':'annotation-create',{options:readNote(),mode:rangeMode});}
+    else if (state.drawing) send('stop');else if(validStyle()) send(editingId?'apply':'start',{style:readStyle()});
+  }
+  for (const key of ['route','color','arrows','diagram']) document.querySelectorAll('[data-'+key+']').forEach(b=>b.addEventListener('click',()=>{style[key]=b.getAttribute('data-'+key);if(key==='color') $('hex').value=style.color;active('data-'+key,style[key]);changed();}));
+  $('dashed').addEventListener('click',()=>{style.dashed=!style.dashed;$('dashed').setAttribute('aria-pressed',String(style.dashed));changed();});
+  ['hex','weight','label','diagram-text','annotation-title','annotation-text','annotation-color','annotation-width','annotation-padding'].forEach(id=>{ $(id).addEventListener('input',changed);$(id).addEventListener('change',changed); });
+  document.querySelectorAll('[data-note-side]').forEach(b=>b.addEventListener('click',()=>{noteSide=b.getAttribute('data-note-side');active('data-note-side',noteSide);changed();}));
+  document.querySelectorAll('[data-range]').forEach(b=>b.addEventListener('click',()=>{rangeMode=b.getAttribute('data-range');active('data-range',rangeMode);render();}));
+  document.querySelectorAll('[data-workflow]').forEach(b=>b.addEventListener('click',()=>send('workflow',{value:b.getAttribute('data-workflow')})));
+  document.querySelectorAll('[data-mode]').forEach(b=>b.addEventListener('click',()=>send('anchors',{mode:b.getAttribute('data-mode')})));
+  document.querySelectorAll('[data-port]').forEach(b=>b.addEventListener('click',()=>send('port',{side:b.getAttribute('data-port')})));
+  $('primary').addEventListener('click',submit);$('cancel').addEventListener('click',()=>send('cancel'));$('reverse').addEventListener('click',()=>send('reverse'));$('refresh').addEventListener('click',()=>send('refresh'));$('new-annotation').addEventListener('click',()=>send('annotation-new'));
+  $('compact').addEventListener('click',()=>{compact=!compact;post({type:'compact',value:compact});render();});
+  $('help').addEventListener('click',()=>{const open=$('help-panel').hidden;$('help-panel').hidden=!open;$('help').setAttribute('aria-expanded',String(open));if(open) $('content').scrollTop=0;});
+  $('delete').addEventListener('click',()=>{text('delete-description',workflow==='annotations'?'刪除這組註記？原有畫面會保留。':'刪除這條連線？連接的畫面會保留。');$('confirm-delete').hidden=false;$('keep').focus();});
+  $('keep').addEventListener('click',()=>{$('confirm-delete').hidden=true;$('delete').focus();});$('confirm').addEventListener('click',()=>send(workflow==='annotations'?'annotation-delete':'delete'));
+  document.addEventListener('keydown',e=>{if((e.metaKey||e.ctrlKey)&&e.key==='Enter'){e.preventDefault();submit();}if(e.key==='Escape'){if(!$('confirm-delete').hidden){e.preventDefault();$('keep').click();}else if(state?.drawing && state.source){e.preventDefault();send('cancel');}}});
+  function ready() {clearTimeout(readyTimer);post({type:'ready',channel});readyTimer=setTimeout(()=>{if(!state){$('connection-error').hidden=false;notice('未收到 Figma 回應，請重新連線。',true);}},7000);}
+  $('retry').addEventListener('click',()=>{$('connection-error').hidden=true;ready();});
+  window.addEventListener('message',event=>{
+    const m=event.data && event.data.pluginMessage;
+    if(!m || m.channel!==channel) return;
+    if(m.type==='result') {
+      if(!pending || pending.requestId!==m.requestId) return;
+      const action=pending;pending=null;
+      if(m.ok && ['apply','annotation-apply','annotation-create','delete','annotation-delete'].includes(action.type)) {
+        drafts.delete(action.key);if(currentKey===action.key){dirty=false;baseline=JSON.stringify(values());}
+        if(action.type==='annotation-create'){drafts.delete((state?.pageId||'page')+'/annotations/new');dirty=false;baseline=JSON.stringify(values());}
+      }
+      render();return;
+    }
+    if(m.type!=='state' || typeof m.drawing!=='boolean' || typeof m.busy!=='boolean' || !['arrows','annotations'].includes(m.workflow)) return;
+    clearTimeout(readyTimer);$('connection-error').hidden=true;
+    const nextWorkflow=m.workflow, nextId=nextWorkflow==='annotations'?m.annotation?.id:!m.drawing?m.editing?.id:null;
+    const nextKey=(m.pageId||'page')+'/'+nextWorkflow+'/'+(nextId||'new');
+    const switched=currentKey!==nextKey, hadDraft=dirty;
+    if(switched) {remember();$('confirm-delete').hidden=true;}
+    if (!state) notice('準備就緒。按「開始連線」選擇起點。');
+    state=m;workflow=nextWorkflow;editingId=nextId||null;
+    const stored=workflow==='annotations'?(m.annotation?.options||noteDefaults):(m.style||defaults);
+    if(switched) {
+      currentKey=nextKey;const draft=drafts.get(currentKey);loadValues(draft?draft.value:stored);baseline=draft?draft.baseline:JSON.stringify(values());dirty=JSON.stringify(values())!==baseline;
+      if(draft) notice('已恢復未儲存的草稿。');else if(hadDraft) notice('上一筆草稿已暫存，重新選取可繼續編輯。');
+    } else if(!dirty && !pending && JSON.stringify(stored)!==baseline) {loadValues(stored);baseline=JSON.stringify(values());}
+    if(workflow==='annotations' && compact){compact=false;post({type:'compact',value:false});}
+    active('data-mode',m.anchorMode);
+    if(m.sequence!==feedbackSequence){feedbackSequence=m.sequence;if(m.message && !(switched && (hadDraft||drafts.has(currentKey)))) notice(m.message,!!m.error);}
+    render();
   });
-  post({ type: 'ready' });
+  loadValues(defaults);render();ready();
 </script>
 </body>
 </html>

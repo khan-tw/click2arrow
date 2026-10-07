@@ -2,7 +2,7 @@
 
 ## Automated coverage
 
-The controller suite has 23 scenarios covering:
+The controller suite has 30 scenarios covering:
 
 - Four side anchors, connection creation and preservation of source objects.
 - Same-object rejection, cancellation, stopping and close cleanup.
@@ -28,20 +28,32 @@ Build and type checking are separate checks. `npm run benchmark` writes operatio
 
 The generated native panel also passed browser interaction checks for creating a multiline note, invalid-color validation, changing note side and color, scoped deletion, and exact rectangle conversion with continuing numbering. The checks drove the real panel controls and its controller messages against synthetic scene nodes; no runtime console errors remained.
 
+## v0.4 regression coverage
+
+- Empty/multiple selection and messages sent before selection notifications cannot mutate a stale arrow.
+- Changing selection during asynchronous font loading cancels the pending arrow edit.
+- Per-panel channels and action acknowledgements preserve success/failure identity; errors survive no-message geometry updates.
+- Starting another annotation leaves existing annotations intact and keeps numbering continuous.
+- Changing selection during annotation font loading cancels the edit and clears stale delete targets.
+- Busy operations report rejection, never successful completion.
+- Cold endpoint lookup cannot resume an arrow edit after the selected target has changed.
+
+The v0.4 generated panel passed 57 browser checks, including source/target flow, previews, edit/delete confirmation, draft restoration, reverting a draft, annotation conversion, failed-save recovery, null-source host messages and foreign-channel rejection. Console output contained no errors or warnings. Light/dark and compact screenshots were inspected; dark mode used simulated Figma theme tokens. The three initially failing SVG visibility checks passed after switching to explicit hidden attributes.
+
 ## Native status
 
 Earlier native smoke testing covered plugin import, the panel, selection-mode anchors, Frame/Component connection, labels, Decision shapes, reopening and movement synchronization.
 
-The v0.2 direct-port workflow, v0.3 range annotations and the open-source packaging changes still require a native interaction pass. Browser testing uses the actual generated panel connected to the scene-graph test double; it verifies controls and message wiring, not Figma canvas drag behavior or native font rendering. Screenshots of private editor sessions are not distributed as test evidence.
+The v0.4 panel, direct-port workflow, range annotations and open-source packaging still require a native interaction pass. An earlier native smoke found the v0.3 panel did not reflect workflow changes. The v0.4 channel-based bridge removes the parent-WindowProxy assumption; confirmation in the native host is pending. Native testing was interrupted by the Mac lock screen. Browser testing uses the actual generated panel connected to the scene-graph test double; it verifies controls and message wiring, not Figma canvas drag behavior or native font rendering. Screenshots of private editor sessions are not distributed as test evidence.
 
 ## Manual smoke checklist
 
 ```text
 Configure your own plugin ID -> build -> import native-plugin/manifest.json
 Open a synthetic design containing two frames
-Draw -> direct source port -> direct target port -> arrow appears
+Start connection -> direct source port -> direct target port -> arrow appears
 Move a frame -> arrow follows
-Edit label / diagram / color -> Apply changes
+Edit label / diagram / color -> Save changes
 Reverse -> endpoints exchange
 Compact -> panel resizes; Expand -> controls return
 Selection mode -> only the selected object's ports appear

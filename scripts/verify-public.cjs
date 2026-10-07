@@ -7,7 +7,7 @@ const allowed = new Set([
   'code.ts', 'ui.html', 'manifest.json', 'package.json', 'package-lock.json', 'tsconfig.json',
   'scripts/build.cjs', 'scripts/configure.cjs', 'scripts/benchmark.cjs', 'scripts/verify-public.cjs',
   'tests/figma-mock.cjs', 'tests/plugin.test.cjs',
-  'docs/interaction-design.md', 'docs/performance.json', 'docs/validation.md', 'docs/security-review.md'
+  'docs/product-review.md', 'docs/interaction-design.md', 'docs/performance.json', 'docs/validation.md', 'docs/security-review.md'
 ]);
 const patterns = [
   ['personal filesystem path', /\/(?:Users|home)\/[a-z0-9._ -]+\//i],

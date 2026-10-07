@@ -106,6 +106,7 @@ test('deleted endpoints preserve the annotation and report the stale connection'
 test('style inputs are bounded; deleting only removes the selected owned arrow', async () => {
   const x = await setup(); const edge = await x.connect({ ...defaults, weight: 99, color: 'bad', label: 'x'.repeat(1000) });
   const e = JSON.parse(edge.getPluginData('click2arrow.v1')); assert.equal(e.style.weight, 8); assert.equal(e.style.color, '#2563eb'); assert.equal(e.style.label.length, 180);
+  await x.send({ type: 'stop' }); await x.choose(edge);
   await x.send({ type: 'delete' }); assert.equal(x.edges().length, 0); assert.equal(x.a.removed, false); assert.equal(x.b.removed, false); x.figma.emit('close');
 });
 test('elbow routing keeps the middle path outside both endpoint rectangles', async () => {
@@ -184,6 +185,7 @@ test('reversing swaps saved endpoints and preserves labels, shape and original f
     const edge = await x.connect({ ...defaults, label: 'Confirm', diagram: 'process' });
     const original = JSON.parse(edge.getPluginData('click2arrow.v1'));
     const line = edge.children.find(n => n.name === 'Flow arrow');
+    await x.send({ type: 'stop' }); await x.choose(edge);
     await x.send({ type: 'reverse' });
     const reversed = JSON.parse(edge.getPluginData('click2arrow.v1'));
     assert.deepEqual(reversed.source, original.target); assert.deepEqual(reversed.target, original.source);
@@ -336,4 +338,100 @@ test('annotation workflow clears arrow ports, and annotations never become arrow
     await x.choose(annotationPart(frame, 'annotation-note'));
     assert.equal(x.state().workflow, 'annotations'); assert.equal(x.dots().length, 0);
   } finally { x.figma.emit('close'); }
+});
+
+test('empty, multiple or changed selection cannot edit or delete a stale arrow', async () => {
+  const x = await setup();
+  try {
+    const edge = await x.connect(); await x.send({ type:'stop' }); await x.choose(edge);
+    const saved = edge.getPluginData('click2arrow.v1');
+    x.figma.currentPage.selection = []; await tick(); assert.equal(x.state().editing, null);
+    await x.send({type:'delete'}); assert.equal(edge.removed,false);
+    await x.choose(edge); x.figma.currentPage.selection = [x.a,x.b]; await tick();
+    assert.equal(x.state().editing,null); await x.send({type:'apply',style:{...defaults,label:'Wrong target'}});
+    assert.equal(edge.getPluginData('click2arrow.v1'),saved);
+    await x.choose(edge); x.figma.currentPage.selection = []; // Mutation before the selection event is dispatched.
+    await x.send({type:'reverse'}); assert.equal(edge.getPluginData('click2arrow.v1'),saved);
+    await x.send({type:'delete'}); assert.equal(edge.removed,false);
+  } finally {x.figma.emit('close');}
+});
+test('selection changing during font loading cancels an arrow save', async () => {
+  const x=await setup();
+  try {
+    const edge=await x.connect();await x.send({type:'stop'});await x.choose(edge);
+    const saved=edge.getPluginData('click2arrow.v1');let release;
+    x.figma.loadFontAsync=()=>new Promise(r=>{release=r});
+    const saving=x.send({type:'apply',style:{...defaults,label:'Pending'}});
+    x.figma.currentPage.selection=[x.a];await tick();release();await saving;
+    assert.equal(edge.getPluginData('click2arrow.v1'),saved);assert.equal(x.state().error,true);
+    await x.send({type:'delete'});assert.equal(edge.removed,false);
+  } finally {x.figma.emit('close');}
+});
+test('panel channel and action acknowledgements identify success and preserve errors', async () => {
+  const x=await setup(),received=[];x.figma.ui.postMessage=m=>received.push(m);
+  try {
+    const channel='0123456789abcdef0123456789abcdef';await x.send({type:'ready',channel});
+    assert.equal(received.at(-1).channel,channel);
+    await x.send({type:'workflow',value:'annotations',requestId:'1'});
+    assert.deepEqual(JSON.parse(JSON.stringify(received.at(-1))),{type:'result',channel,requestId:'1',ok:true});
+    await x.send({type:'annotation-create',mode:'selection',options:annotationOptions,requestId:'2'});
+    assert.equal(received.at(-1).ok,false);assert.equal(received.at(-1).requestId,'2');
+    const error=received.filter(m=>m.type==='state').at(-1);assert.equal(error.error,true);
+    x.figma.nodeChange();await new Promise(r=>setTimeout(r,40));
+    assert.equal(received.filter(m=>m.type==='state').at(-1).error,true);
+    await x.send({type:'ready',channel:'bad'});assert.equal(received.at(-1).channel,channel);
+  } finally {x.figma.emit('close');}
+});
+test('new annotation exits editing without deleting an existing annotation', async () => {
+  const x=await setup();
+  try {
+    const first=await annotate(x);await x.send({type:'annotation-new'});await tick();
+    assert.equal(x.state().annotation,null);assert.equal(x.state().workflow,'annotations');
+    assert.equal(first.removed,false);assert.equal(x.state().annotationNext,2);
+  } finally {x.figma.emit('close');}
+});
+
+test('annotation selection changes during save cannot leave a stale edit or delete target', async () => {
+  const x=await setup(),received=[];const originalPost=x.figma.ui.postMessage;
+  x.figma.ui.postMessage=m=>{originalPost(m);received.push(m)};
+  try {
+    const frame=await annotate(x),saved=frame.getPluginData('click2arrow.annotation.v1');let release;
+    x.figma.loadFontAsync=()=>new Promise(r=>{release=r});
+    const saving=x.send({type:'annotation-apply',options:{...annotationOptions,text:'Pending replacement'},requestId:'save-note'});
+    x.figma.currentPage.selection=[x.a];await tick();release();await saving;
+    assert.equal(frame.getPluginData('click2arrow.annotation.v1'),saved);
+    assert.equal(received.find(m=>m.type==='result'&&m.requestId==='save-note').ok,false);
+    assert.equal(received.filter(m=>m.type==='state').at(-1).annotation,null);
+    await x.send({type:'annotation-delete'});assert.equal(frame.removed,false);
+    await x.choose(frame);x.figma.currentPage.selection=[];
+    await x.send({type:'annotation-delete'});assert.equal(frame.removed,false);
+  } finally {x.figma.emit('close');}
+});
+test('busy rejection never acknowledges an unperformed destructive action as successful', async () => {
+  const x=await setup(),received=[];
+  try {
+    const frame=await annotate(x);x.figma.ui.postMessage=m=>received.push(m);let release;
+    x.figma.loadFontAsync=()=>new Promise(r=>{release=r});
+    const saving=x.send({type:'annotation-apply',options:{...annotationOptions,text:'Updated note'},requestId:'save'});
+    await x.send({type:'annotation-delete',requestId:'rejected-delete'});
+    assert.equal(received.find(m=>m.type==='result'&&m.requestId==='rejected-delete').ok,false);
+    assert.equal(frame.removed,false);release();await saving;
+    assert.equal(received.find(m=>m.type==='result'&&m.requestId==='save').ok,true);
+    assert.equal(annotationData(frame).options.text,'Updated note');
+  } finally {x.figma.emit('close');}
+});
+test('selection changing during cold endpoint lookup cancels arrow editing before rendering', async () => {
+  const x=await setup(),received=[];
+  try {
+    const edge=await x.connect();await x.send({type:'stop'});
+    const originalPage=x.figma.currentPage,p=new x.figma.Node('PAGE');x.figma.root.appendChild(p);
+    x.figma.changePage(p);x.figma.changePage(originalPage);await x.choose(edge);
+    const saved=edge.getPluginData('click2arrow.v1'),resolve=x.figma.getNodeByIdAsync;let release,first=true;
+    x.figma.getNodeByIdAsync=id=>{if(first){first=false;return new Promise(r=>{release=()=>r(resolve(id))})}return resolve(id)};
+    x.figma.ui.postMessage=m=>received.push(m);
+    const saving=x.send({type:'apply',style:{...defaults,label:'Must not save'},requestId:'lookup'});
+    await tick();await x.choose(x.b);release();await saving;
+    assert.equal(edge.getPluginData('click2arrow.v1'),saved);
+    assert.equal(received.find(m=>m.type==='result'&&m.requestId==='lookup').ok,false);
+  } finally {x.figma.emit('close');}
 });

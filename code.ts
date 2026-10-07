@@ -15,7 +15,8 @@ type Style = {
 }
 type Edge = { version: 1; source: Endpoint; target: Endpoint; style: Style }
 type Message =
-  | { type: 'ready' | 'stop' | 'cancel' | 'delete' | 'refresh' }
+  | { type: 'ready'; channel?: string }
+  | { type: 'stop' | 'cancel' | 'delete' | 'refresh' | 'annotation-new' }
   | { type: 'reverse' }
   | { type: 'compact'; value: boolean }
   | { type: 'start' | 'style' | 'apply'; style: Style }
@@ -36,6 +37,8 @@ let source: Endpoint | null = null
 let selectedTarget: SceneNode | null = null
 let editing: FrameNode | null = null
 let workflow: 'arrows' | 'annotations' = 'arrows'
+let uiChannel = ''
+let feedback = { message: '', error: false, sequence: 0 }
 let editingAnnotation: FrameNode | null = null
 let busy = false
 let isClosed = false
@@ -299,20 +302,20 @@ async function createAnnotation(mode: 'selection' | 'rectangle', value: Annotati
 }
 async function applyAnnotation(value: AnnotationOptions): Promise<void> {
   const frame = editingAnnotation, a = frame && !frame.removed ? annotationSnapshot(frame) : null, rev = revision
-  if (!frame || !a || frame.parent !== page || frame.locked) throw new Error('請先選取目前頁面可編輯的範圍註記。')
+  if (!frame || !a || frame.parent !== page || frame.locked || page.selection.length !== 1 || ownedAnnotation(page.selection[0]) !== frame) throw new Error('請先選取目前頁面可編輯的範圍註記。')
   const options = annotationOptions(value)
   if (!options.text.trim()) throw new Error('請先輸入文字備註。')
   busy = true; report('儲存註記中...')
   try {
     await figma.loadFontAsync({ family: 'Inter', style: 'Regular' })
     if (isClosed || rev !== revision) return
-    if (frame.removed || frame.parent !== page || frame.locked) throw new Error('註記已移動或刪除，請重新選取。')
+    if (frame.removed || frame.parent !== page || frame.locked || page.selection.length !== 1 || ownedAnnotation(page.selection[0]) !== frame) throw new Error('選取已變更，請重新選取註記後儲存。')
     const border = annotationPart(frame, 'annotation-border')
     if (!border || border.type !== 'RECTANGLE') throw new Error('註記外框已刪除，請重新建立註記。')
     const origin = transform(border, { x: 0, y: 0 })
     renderAnnotation(frame, { ...a, options }, { ...origin, width: border.width, height: border.height }, frame.absoluteTransform)
     figma.commitUndo(); report('註記已儲存。編號與原有範圍保持不變。')
-  } finally { busy = false; report() }
+  } finally { busy = false; if (page.selection.length !== 1 || ownedAnnotation(page.selection[0]) !== frame) selectionChanged(); report() }
 }
 function vector(parent: FrameNode, key: string, name: string, points: Point[], color: string, weight: number, filled = false, path?: string): VectorNode {
   const v = part(parent, key, name, () => figma.createVector())
@@ -494,13 +497,17 @@ function updateHandles(): void {
 function showHandles(node: SceneNode): void { selectedTarget = node; updateHandles() }
 function report(message?: string, error = false): void {
   if (isClosed) return
+  if (message !== undefined) feedback = { message, error, sequence: feedback.sequence + 1 }
   const annotation = editingAnnotation && !editingAnnotation.removed ? annotationSnapshot(editingAnnotation) : null
   const selected = annotationSelection()
-  figma.ui.postMessage({ type: 'state', drawing, busy, source, anchorMode, anchorLimit, anchorCount: handles.size / 4, connectionCount: tracked.size, target: selectedTarget && !selectedTarget.removed ? { id: selectedTarget.id, name: selectedTarget.name } : null,
+  let range: Box | null = null
+  try { if (selected.length && selected.length <= 100) range = annotationBounds(selected, 0) } catch { /* Invalid ranges remain unavailable. */ }
+  const sourceNode = source ? endpointCache.get(source.id) : null
+  figma.ui.postMessage({ type: 'state', channel: uiChannel, pageId: page.id, sourceName: sourceNode && !sourceNode.removed ? sourceNode.name : null, range, drawing, busy, source, anchorMode, anchorLimit, anchorCount: handles.size / 4, connectionCount: tracked.size, target: selectedTarget && !selectedTarget.removed ? { id: selectedTarget.id, name: selectedTarget.name } : null,
     editing: editing && !editing.removed ? { id: editing.id, name: editing.name } : null, style, workflow,
     annotation: annotation && editingAnnotation ? { id: editingAnnotation.id, name: editingAnnotation.name, ...annotation, editable: editingAnnotation.parent === page && !editingAnnotation.locked } : null,
     annotationSelectionCount: selected.length, annotationCanCreate: selected.length > 0 && selected.length <= 100 && selected.length === page.selection.length,
-    annotationCanConvert: convertibleRectangle(page.selection), annotationNext: nextAnnotationNumber(), message, error })
+    annotationCanConvert: convertibleRectangle(page.selection), annotationNext: nextAnnotationNumber(), ...feedback })
 }
 async function pick(endpoint: Endpoint): Promise<void> {
   if (!drawing || busy) return
@@ -515,11 +522,11 @@ async function pick(endpoint: Endpoint): Promise<void> {
   try {
     await figma.loadFontAsync({ family: 'Inter', style: 'Regular' })
     if (isClosed || page !== currentPage) return
-    await resolve(captured); await resolve(endpoint)
+    const endpoints = await Promise.all([resolve(captured), resolve(endpoint)]) as [SceneNode, SceneNode]
     if (isClosed || page !== currentPage) return
     if (tracked.size >= 200) throw new Error('此頁面已達 200 條連線。請分頁繪製。')
     frame = figma.createFrame(); page.appendChild(frame); frame.fills = []; frame.clipsContent = false; frame.setPluginData('c2a-role', 'edge')
-    await render(frame, { version: 1, source: captured, target: endpoint, style: { ...style } })
+    await render(frame, { version: 1, source: captured, target: endpoint, style: { ...style } }, endpoints)
     // Keep the native click targets above the new output without recreating them.
     for (const h of handles.values()) if (!h.node.removed) page.appendChild(h.node)
     figma.commitUndo(); source = null; selectedTarget = null; editing = frame
@@ -552,17 +559,17 @@ function selectionChanged(allowAutoSwitch = true): void {
   }
   editingAnnotation = null
   if (selection.length !== 1) {
-    selectedTarget = null; updateHandles()
+    editing = null; selectedTarget = null; updateHandles()
     report(selection.length > 1 ? '請一次選取一個 frame 或 component。' : undefined); return
   }
   const node = selection[0], handle = handles.get(node.id)
   if (handle) { void pick(handle.endpoint); return }
-  if (drawing && target(node)) { showHandles(node); report(source ? '點四邊連線點之一，完成箭頭。' : '點四邊連線點之一，設定起點。'); return }
+  if (drawing && target(node)) { editing = null; showHandles(node); report(source ? '點四邊連線點之一，完成箭頭。' : '點四邊連線點之一，設定起點。'); return }
   selectedTarget = null; updateHandles()
   const edge = ownedEdge(node)
   editing = edge
-  if (edge) { style = data(edge)!.style; report('已選取箭頭。調整後按 Apply changes。') }
-  else report(drawing ? '請選取 frame、component 或 instance。' : '按 Draw 開始快速連線。')
+  if (edge) { style = data(edge)!.style; report('已選取箭頭。調整後按「儲存變更」。') }
+  else report(drawing ? '請選取 frame、component 或 instance。' : '按「開始連線」，再選取畫面上的物件。')
 }
 async function refreshGeometry(): Promise<boolean> {
   if (refreshing || isClosed || busy || !fontReady) return false
@@ -613,7 +620,7 @@ function scan(): void {
     if (n.type === 'FRAME' && data(n)) tracked.set(n.id, { node: n, fingerprint: '' })
   }
 }
-figma.showUI(__html__, { width: 360, height: 690, themeColors: true })
+figma.showUI(__html__, { width: 380, height: 680, themeColors: true })
 figma.root.setRelaunchData({ ...figma.root.getRelaunchData(), [RELAUNCH]: 'Draw flow arrows and range annotations' })
 scan()
 page.on('nodechange', changed)
@@ -629,18 +636,24 @@ figma.on('close', () => {
   if (syncTimer !== undefined) clearTimeout(syncTimer)
   clearHandles(); page.off('nodechange', changed)
 })
-figma.ui.onmessage = async (m: Message) => {
+figma.ui.onmessage = async (m: Message & { requestId?: string }) => {
   if (!m || isClosed) return
+  const startRevision = revision, startFeedback = feedback.sequence
+  let succeeded = true
   try {
     if (m.type === 'ready') {
+      if (typeof m.channel === 'string' && /^[a-f0-9]{32}$/.test(m.channel)) uiChannel = m.channel
       try { const saved = JSON.parse(figma.root.getPluginData('c2a-preferences') || '{}'); style = validateStyle({ ...defaults, ...saved, label: '', diagramText: '' }) } catch { style = { ...defaults } }
       await figma.loadFontAsync({ family: 'Inter', style: 'Regular' }); fontReady = true; selectionChanged(); changed(); return
     }
-    if (busy && m.type !== 'style') { report('請等待目前操作完成。'); return }
+    if (busy && m.type !== 'style') { succeeded = false; report('請等待目前操作完成。'); return }
     if (m.type === 'workflow') {
       workflow = m.value === 'annotations' ? 'annotations' : 'arrows'
       if (workflow === 'annotations') { drawing = false; source = null; selectedTarget = null; clearHandles(); editing = null }
       editingAnnotation = null; selectionChanged(false); report(); return
+    }
+    if (m.type === 'annotation-new') {
+      workflow = 'annotations'; drawing = false; source = null; selectedTarget = null; editing = null; editingAnnotation = null; clearHandles(); page.selection = []; report('請選取新的範圍，再填寫備註。'); return
     }
     if (m.type === 'annotation-create') {
       if (workflow !== 'annotations' || (m.mode !== 'rectangle' && m.mode !== 'selection')) throw new Error('請先切換至範圍註記。')
@@ -649,10 +662,10 @@ figma.ui.onmessage = async (m: Message) => {
     if (m.type === 'annotation-apply') { if (workflow !== 'annotations') throw new Error('請先切換至範圍註記。'); await applyAnnotation(m.options); return }
     if (m.type === 'annotation-delete') {
       const frame = editingAnnotation
-      if (workflow !== 'annotations' || !frame || frame.removed || frame.parent !== page || frame.locked || !annotationData(frame)) throw new Error('請先選取可編輯的範圍註記。')
+      if (workflow !== 'annotations' || !frame || frame.removed || frame.parent !== page || frame.locked || !annotationData(frame) || page.selection.length !== 1 || ownedAnnotation(page.selection[0]) !== frame) throw new Error('請先選取可編輯的範圍註記。')
       frame.remove(); editingAnnotation = null; page.selection = []; figma.commitUndo(); report('已刪除選取的範圍註記。'); return
     }
-    if (m.type === 'compact') { figma.ui.resize(360, m.value ? 350 : 690); return }
+    if (m.type === 'compact') { figma.ui.resize(380, m.value ? 360 : 680); return }
     if (m.type === 'anchors') {
       anchorMode = m.mode === 'selection' ? 'selection' : 'visible'; updateHandles(); report('連線點顯示方式已切換。'); return
     }
@@ -672,24 +685,30 @@ figma.ui.onmessage = async (m: Message) => {
     if (m.type === 'port' && sides.includes(m.side) && selectedTarget && target(selectedTarget)) { await pick({ id: selectedTarget.id, side: m.side }); return }
     if (m.type === 'apply' || m.type === 'reverse') {
       const frame = editing, e = frame && !frame.removed ? data(frame) : null
-      if (!frame || !e) { report('請先選取 Click2Arrow 建立的箭頭。', true); return }
+      if (!frame || !e || frame.locked || frame.parent !== page || page.selection.length !== 1 || ownedEdge(page.selection[0]) !== frame) throw new Error('請先選取目前頁面可編輯的 Click2Arrow 箭頭。')
       busy = true; report('更新中...'); const rev = revision
       try {
         await figma.loadFontAsync({ family: 'Inter', style: 'Regular' })
         if (isClosed || rev !== revision) return
+        if (page.selection.length !== 1 || ownedEdge(page.selection[0]) !== frame || frame.removed || frame.locked || frame.parent !== page) throw new Error('選取已變更，請重新選取箭頭後儲存。')
         const next = m.type === 'reverse' ? { ...e, source: e.target, target: e.source } : { ...e, style: validateStyle(m.style) }
-        await resolve(next.source); await resolve(next.target)
-        await render(frame, next); style = next.style; figma.commitUndo(); report(m.type === 'reverse' ? '已交換起點與終點。' : '箭頭、圖形與文字已更新。')
-      } finally { busy = false; report() }
+        const endpoints = await Promise.all([resolve(next.source), resolve(next.target)]) as [SceneNode, SceneNode]
+        if (isClosed || rev !== revision) return
+        if (page.selection.length !== 1 || ownedEdge(page.selection[0]) !== frame || frame.removed || frame.locked || frame.parent !== page) throw new Error('選取已變更，請重新選取箭頭後儲存。')
+        await render(frame, next, endpoints); style = next.style; figma.commitUndo(); report(m.type === 'reverse' ? '已交換起點與終點。' : '箭頭、圖形與文字已更新。')
+      } finally { busy = false; if (page.selection.length !== 1 || ownedEdge(page.selection[0]) !== frame) selectionChanged(); report() }
       return
     }
     if (m.type === 'delete') {
-      if (!editing || editing.removed || !data(editing)) { report('請先選取要刪除的 Click2Arrow 箭頭。', true); return }
+      if (!editing || editing.removed || editing.locked || editing.parent !== page || !data(editing) || page.selection.length !== 1 || ownedEdge(page.selection[0]) !== editing) throw new Error('請先選取要刪除的 Click2Arrow 箭頭。')
       tracked.delete(editing.id); editing.remove(); editing = null; figma.commitUndo(); report('已刪除選取的箭頭。'); return
     }
     if (m.type === 'refresh') {
       scan(); const hasStaleEndpoint = await refreshGeometry()
       report(hasStaleEndpoint ? '部分連線物件已刪除或隱藏；其箭頭已保留。' : '連線位置已更新。', hasStaleEndpoint)
     }
-  } catch (err) { busy = false; report(err instanceof Error ? err.message : '操作未完成，請再試一次。', true) }
+  } catch (err) { succeeded = false; busy = false; report(err instanceof Error ? err.message : '操作未完成，請再試一次。', true) }
+  finally {
+    if (!isClosed && typeof m.requestId === 'string' && m.requestId.length <= 64) figma.ui.postMessage({ type: 'result', channel: uiChannel, requestId: m.requestId, ok: succeeded && startRevision === revision && !(feedback.sequence > startFeedback && feedback.error) })
+  }
 }

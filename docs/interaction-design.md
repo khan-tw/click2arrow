@@ -10,7 +10,7 @@ Reduce repeated manual line drawing, endpoint alignment and flow annotation betw
 Requested:
 Draw -> hover object -> four side ports -> source click -> target click
 
-Current default (v0.3):
+Current default (v0.4):
 Draw -> select object -> four side ports -> source click
      -> select target -> four side ports -> target click
 
@@ -47,39 +47,48 @@ Waiting for object ---- select supported object ---> Picking source
                                               Waiting for object
 
 Stop drawing / plugin close -> remove temporary anchors
-Selected owned arrow        -> edit controls -> Apply changes
+Selected owned arrow        -> edit controls -> Save changes
 ```
 
 All document mutation, endpoint validation and saved connection data belong to `code.ts`. The iframe owns input controls and presentation. Messages carry explicit start, stop, cancel, port, style, apply, refresh and delete actions. Busy states prevent overlapping mutations. Input is revalidated in the document controller.
 
-## Panel structure
+## Panel structure (v0.4)
 
 ```text
-+---------------------------------+
-| Click2Arrow                     |
-| Direct / Selection    Compact
-| Draw                  Cancel    |
-| 1 Select > 2 Source > 3 Target   |
-| [selected object / four sides]  |
-|---------------------------------|
-| Connection                      |
-| [Elbow] [Straight] [Curve]       |
-| Color            Stroke weight  |
-| Dashed           Arrowheads     |
-|---------------------------------|
-| Flow content                    |
-| Arrow label                     |
-| [None] [Process] [Decision]      |
-| [Start/End]                     |
-| Diagram text                    |
-|---------------------------------|
-| Selected arrow                  |
-| Reverse   Apply changes   Delete   |
-| Status / validation feedback    |
-+---------------------------------+
++--------------------------------------+
+| Click2Arrow          Compact   Help   |
+| [Flow connection] [Range annotation]  |
+|--------------------------------------|
+| Current task / selected object        |
+| Source -> Target (while drawing)      |
+| Composed arrow preview                |
+| Route                                |
+| Color                      Width     |
+| > More appearance options            |
+| Arrow label                          |
+| > Midpoint flow shape                |
+|--------------------------------------|
+| Current item           Saved / Draft |
+| [Contextual primary action]          |
+| Status / actionable validation       |
++--------------------------------------+
+
+Idle arrow   -> Start connection
+Drawing      -> End connection / Cancel source
+Selected edge -> Save changes / Reverse / Delete
+New note     -> Create annotation
+Selected note -> Save annotation / New annotation / Delete
 ```
 
-Primary action remains Draw. A connected arrow can be edited immediately after creation. Explicit Apply changes groups annotation and style edits instead of rebuilding the scene on each keystroke. The panel stays open for consecutive connections.
+The panel uses a 380x680 viewport, or 380x360 in compact mode. Help and low-frequency appearance options use disclosure rather than repeated permanent instructions. Diagram labels use the same language as other controls. Theme colors follow Figma; functional text and hit areas are larger than v0.3.
+
+The footer derives its edit target from the current single selection. Empty or multiple selection clears that target. The controller revalidates the selected owned object before each destructive/edit action and after asynchronous arrow font loading. Delete uses an inline confirmation which is cancelled when the selection changes.
+
+Unsaved drafts are held only in panel memory, keyed by page, tool, and object ID, with a separate draft for new items. Changing canvas selection or switching tools retains the draft. Reverting every field to its saved baseline removes the draft. A save clears the draft only after a controller success acknowledgement; failures keep the text. Closing the plugin discards unsaved drafts.
+
+The UI's random per-panel channel is echoed by the controller. Received messages must match it. This avoids requiring a parent WindowProxy on host-generated MessageEvents, while ignoring messages for a different panel. A loading state and reconnect action make a missing bridge response visible. Input validation runs before submission and document values are validated again in the controller.
+
+Cmd/Ctrl+Enter invokes the available primary action while the panel has focus. Escape cancels a pending source or closes inline delete confirmation. These are panel shortcuts, not global Figma shortcuts.
 
 ## Diagram behavior
 

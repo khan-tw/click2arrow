@@ -11,17 +11,19 @@ Frame A --------< Decision >---> Frame B
 
 ## Features
 
-- **Optional direct anchors:** press Draw to show side-midpoint ports on visible objects. Click a source port, then a target port; no object selection is required.
+- **Optional direct anchors:** press **開始連線** to show side-midpoint ports on visible objects. Click a source port, then a target port; no object selection is required.
 - **Selection mode (default):** show four ports only on the selected object, useful for dense layouts and nested components.
 - Elbow, straight and curved routes; single, double or no arrowhead; solid/dashed strokes; 1-8 px widths and custom HEX colors.
 - Editable arrow labels and midpoint Process, Decision or Start/End shapes. Diagram frames can be branching endpoints.
-- Reverse direction, compact panel, cancellation, connection counts and saved appearance preferences.
+- Contextual creation/edit actions, composed arrow preview, source/target names, compact panel and saved appearance preferences.
+- Inline validation, session-only drafts that survive selection/tool changes, and explicit delete confirmation. Unsaved drafts last until the plugin closes.
+- Reverse direction, cancellation, connection counts and Cmd/Ctrl+Enter to submit while the panel has focus.
 - Connected geometry updates while the plugin is open. Existing arrow parts are updated in place during movement.
 - **Range annotations:** marquee-select existing objects, or draw a rectangle with Figma's R tool and explicitly convert it. Create an unfilled dashed outline, an automatic per-page number, and an editable note on the left or right.
 - Annotation titles, multiline notes, colors, note widths and selection padding. Select any annotation child to reopen the editor; deleting a note group leaves the original frames untouched.
 - No accounts, analytics, remote services or network access are required by the plugin.
 
-The panel uses Traditional Chinese with English product terms.
+The panel uses Traditional Chinese action labels, Figma theme colors, and a compact 380px layout. Secondary appearance settings are expandable.
 
 ## Install for development
 
@@ -52,21 +54,23 @@ For a fresh checkout, `npm run build` can compile without a local ID, but the ge
 
 ```text
 Direct mode:
-Draw -> click source port -> click target port -> continue drawing
+開始連線 -> click source port -> click target port -> continue drawing
 
 Selection mode:
-Draw -> select object -> click source port
+開始連線 -> select object -> click source port
      -> select another object -> click target port
 
 Edit:
-Select a generated arrow -> change settings -> Apply changes
+Select a generated arrow -> change settings -> 儲存變更
 ```
 
-**Cancel** clears the pending source. **Stop drawing** and closing the plugin remove temporary ports. Escape cancels when the plugin panel has keyboard focus; it is not a global Figma shortcut. **Delete** removes the selected generated arrow. Source objects retain their parents, appearance and children.
+**取消起點** clears the pending source. **結束連線** and closing the plugin remove temporary ports. Escape cancels when the plugin panel has keyboard focus; it is not a global Figma shortcut. **刪除** removes the selected generated arrow. Source objects retain their parents, appearance and children.
 
 ### Range annotations
 
-Switch to **範圍註記** (Range annotation), enter a note, and choose a range source:
+Switch to **範圍註記**, choose a range source, and enter a note. After creation, **新增另一個** starts the next annotation. Unsaved edits are retained when selecting other objects or switching tools, and are cleared only after successful saving or when the plugin closes.
+
+
 
 ```text
 Existing objects:
@@ -118,7 +122,7 @@ npm run verify:public
 - `tests/`: scene-graph test double and controller regression tests.
 - [Interaction design](docs/interaction-design.md), [validation](docs/validation.md), and [security review](docs/security-review.md).
 
-The current controller suite covers 23 scenarios, including annotation creation, editing, conversion, numbering, source preservation and asynchronous cancellation. The operation-count benchmark checks 100 geometry updates; it is not a Figma FPS measurement. Native verification of the v0.2 direct-port and v0.3 annotation workflows is still pending.
+The current controller suite covers 30 scenarios, including annotation creation, editing, conversion, numbering, source preservation and asynchronous cancellation. The operation-count benchmark checks 100 geometry updates; it is not a Figma FPS measurement. Native verification of the v0.4 panel and the direct-port/range-annotation workflows is still pending. See the [product review](docs/product-review.md) for verified browser findings and remaining native checks.
 
 ## License
 

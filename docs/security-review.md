@@ -22,3 +22,9 @@ Initial results: the exact publication tree passed the sensitive-content policy 
 ## Limits
 
 Automated scans detect known patterns and known dependency advisories; they are not a guarantee against every vulnerability or every form of confidential content. The runtime retains annotation text and endpoint IDs inside the user's Figma document by design. Native interaction verification for the v0.2 workflow and the public packaging changes is still pending.
+
+## v0.4 review
+
+The UI/controller bridge now echoes a random per-panel channel rather than relying on a parent WindowProxy. Channel values and unsaved drafts are held in runtime memory; they are not written to plugin data or sent to a network service. All status, labels and note previews use text content, not HTML interpolation.
+
+The reviewed update also checks the live selected object before edits/deletes and after asynchronous lookups. A rejected busy operation cannot report successful saving. Native packages, screenshots, private diagnostics and account-library source remain excluded from the public tree.

@@ -10,15 +10,15 @@ Reduce repeated manual line drawing, endpoint alignment and flow annotation betw
 Requested:
 Draw -> hover object -> four side ports -> source click -> target click
 
-Implemented v0.2 (default):
-Draw -> show visible ports -> source click -> target click -> next connection
-
-Optional selection mode:
+Current default (v0.2.1):
 Draw -> select object -> four side ports -> source click
      -> select target -> four side ports -> target click
+
+Optional direct mode (explicit opt-in):
+Draw -> show visible ports -> source click -> target click
 ```
 
-Direct mode removes the two object-selection clicks; the visible ports remain until Draw stops. This difference from hover is disclosed in the UI instructions and README. It follows the supported `selectionchange` event. No native hover or moving-cursor preview is claimed. The original hover concept remains the preferred interaction if Figma later provides the required canvas pointer API.
+The requested interaction is hover-only on existing frames/components. It remains unimplemented because the public Figma Design plugin API has no canvas pointer/hover event for these objects. The default no longer populates all visible ports. Selection mode is an existing fallback, not completion of the hover requirement. Widget hover styles apply only to a widget's own elements.
 
 ## State ownership
 

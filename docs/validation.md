@@ -2,7 +2,7 @@
 
 ## Automated coverage
 
-The controller suite has 15 scenarios covering:
+The controller suite has 16 scenarios covering:
 
 - Four side anchors, connection creation and preservation of source objects.
 - Same-object rejection, cancellation, stopping and close cleanup.
@@ -12,6 +12,7 @@ The controller suite has 15 scenarios covering:
 - Page changes and closing during asynchronous work.
 - Missing/hidden endpoints, bounds validation and scoped deletion.
 - Elbow routing around the two connected objects.
+- Draw defaults to no ports until one object is selected; only that object has ports.
 - Direct port clicks without first selecting source/target objects.
 - Viewport/visibility filtering and the 40-object port limit.
 - Stable layer IDs with zero new scene nodes over 100 geometry updates.

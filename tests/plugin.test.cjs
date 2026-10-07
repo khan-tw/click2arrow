@@ -13,7 +13,7 @@ async function setup(mode = 'selection') {
   vm.runInNewContext(code, { figma, __html__: '', setTimeout, clearTimeout });
   const send = m => figma.ui.onmessage(m);
   await send({ type: 'ready' });
-  await send({ type: 'anchors', mode });
+  if (mode !== null) await send({ type: 'anchors', mode });
   const a = figma.createFrame(); a.name = 'Screen A'; a.resize(240, 180); a.x = 80; a.y = 100;
   const b = figma.createFrame(); b.name = 'Screen B'; b.resize(240, 180); b.x = 580; b.y = 180;
   const choose = async n => { figma.currentPage.selection = [n]; await tick(); };
@@ -199,5 +199,25 @@ test('hidden endpoints resume synchronization after being shown again', async ()
     x.b.visible = false; await x.send({ type: 'refresh' }); assert.equal(x.state().error, true);
     x.b.visible = true; x.b.x += 400; x.figma.nodeChange(); await new Promise(r => setTimeout(r, 70));
     assert.ok(edge.width > width);
+  } finally { x.figma.emit('close'); }
+});
+
+
+test('Draw defaults to one selected object and never populates all visible ports implicitly', async () => {
+  const x = await setup(null);
+  try {
+    await x.send({ type: 'start', style: defaults });
+    assert.equal(x.state().anchorMode, 'selection');
+    assert.equal(x.dots().length, 0);
+    await new Promise(r => setTimeout(r, 200));
+    assert.equal(x.dots().length, 0);
+    await x.choose(x.a); assert.equal(x.dots().length, 4);
+    await x.choose(x.b); assert.equal(x.dots().length, 4);
+    for (const dot of x.dots()) {
+      const cx = dot.x + dot.width / 2, cy = dot.y + dot.height / 2;
+      assert.ok(cx >= x.b.x && cx <= x.b.x + x.b.width);
+      assert.ok(cy >= x.b.y && cy <= x.b.y + x.b.height);
+    }
+    x.figma.currentPage.selection = []; await tick(); assert.equal(x.dots().length, 0);
   } finally { x.figma.emit('close'); }
 });

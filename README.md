@@ -11,8 +11,8 @@ Frame A --------< Decision >---> Frame B
 
 ## Features
 
-- **Direct anchors:** press Draw to show side-midpoint ports on visible objects. Click a source port, then a target port; no object selection is required.
-- **Selection mode:** show four ports only on the selected object, useful for dense layouts and nested components.
+- **Optional direct anchors:** press Draw to show side-midpoint ports on visible objects. Click a source port, then a target port; no object selection is required.
+- **Selection mode (default):** show four ports only on the selected object, useful for dense layouts and nested components.
 - Elbow, straight and curved routes; single, double or no arrowhead; solid/dashed strokes; 1-8 px widths and custom HEX colors.
 - Editable arrow labels and midpoint Process, Decision or Start/End shapes. Diagram frames can be branching endpoints.
 - Reverse direction, compact panel, cancellation, connection counts and saved appearance preferences.
@@ -66,7 +66,7 @@ Labels and geometry are saved in the Figma document using plugin data. Anyone wi
 
 ## Platform limits
 
-- **This is not hover-only interaction.** Figma Design's public plugin API does not expose arbitrary canvas pointer/hover events. Direct mode keeps ports visible while Draw is active; selection mode displays them after selection. See the [Figma event API](https://developers.figma.com/docs/plugins/api/properties/figma-on/).
+- **This is not hover-only interaction.** Figma Design's public plugin API does not expose arbitrary canvas pointer/hover events. The default is selection mode, which displays ports on one selected object. Direct mode keeps visible ports on the canvas only when explicitly enabled. Neither mode fulfills the hover-only requirement. See the [Figma event API](https://developers.figma.com/docs/plugins/api/properties/figma-on/).
 - Direct mode displays ports on up to 40 visible objects. Sections/groups are traversed with a 1,200-node examination budget; frames/components are treated as single objects. Explicit selection can target a nested object. Pan or zoom to change the visible set.
 - Geometry synchronization covers up to 200 top-level connection outputs on the current page. The plugin must remain open; reopening or Refresh updates saved connections. Missing/hidden endpoints preserve existing arrow output.
 - Elbow routing avoids the two endpoints, not every unrelated canvas object. Overlapping endpoints or tight layouts may need another route.
@@ -91,7 +91,7 @@ npm run verify:public
 - `tests/`: scene-graph test double and controller regression tests.
 - [Interaction design](docs/interaction-design.md), [validation](docs/validation.md), and [security review](docs/security-review.md).
 
-The current controller suite covers 15 scenarios. The operation-count benchmark checks 100 geometry updates; it is not a Figma FPS measurement. Native verification of the v0.2 direct-port workflow is still pending.
+The current controller suite covers 16 scenarios, including verification that Draw does not show all visible ports by default. The operation-count benchmark checks 100 geometry updates; it is not a Figma FPS measurement. Native verification of the v0.2 direct-port workflow is still pending.
 
 ## License
 

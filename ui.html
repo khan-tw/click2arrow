@@ -96,21 +96,21 @@
   <header>
     <div class="brand">
       <div class="brandmark"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="6" height="6" rx="1.5"/><path d="M6 10v6h11m-3-3 3 3-3 3"/></svg></div>
-      <h1>Click2Arrow</h1><span class="version">v0.2</span><button class="ghost" id="compact" aria-label="切換精簡面板" aria-pressed="false">精簡</button>
+      <h1>Click2Arrow</h1><span class="version">v0.2.1</span><button class="ghost" id="compact" aria-label="切換精簡面板" aria-pressed="false">精簡</button>
     </div>
     <p class="tagline">把畫面連起來，把流程說清楚。</p>
   </header>
   <fig-content>
     <section id="drawing-section">
-      <div class="segment mode-picker" aria-label="連線點顯示方式"><button data-mode="visible" class="active" aria-pressed="true">直接顯示連線點</button><button data-mode="selection" aria-pressed="false">選取後顯示</button></div>
+      <div class="segment mode-picker" aria-label="連線點顯示方式"><button data-mode="selection" class="active" aria-pressed="true">選取後顯示</button><button data-mode="visible" aria-pressed="false">顯示可見節點</button></div>
       <div class="draw-row"><fig-button id="draw" type="submit">Draw</fig-button><button class="ghost" id="cancel">取消起點</button></div>
       <div class="steps" aria-label="繪製步驟">
-        <span class="step" id="step1"><b>1</b><span id="step1-label">顯示節點</span></span><span class="step-divider"></span>
+        <span class="step" id="step1"><b>1</b><span id="step1-label">選取物件</span></span><span class="step-divider"></span>
         <span class="step" id="step2"><b>2</b>點起點</span><span class="step-divider"></span>
         <span class="step" id="step3"><b>3</b>點終點</span>
       </div>
-      <p class="hint" id="hint">按 Draw，直接點物件的起點和終點。</p>
-      <div class="meta"><span id="anchor-count">免選取物件</span><span id="connection-count">0 條連線</span></div>
+      <p class="hint" id="hint">按 Draw，再選取 frame 或 component。</p>
+      <div class="meta"><span id="anchor-count">選取物件後顯示節點</span><span id="connection-count">0 條連線</span></div>
       <div id="ports-wrap">
         <div class="port-grid" aria-label="選擇連線邊">
           <span></span><button data-port="top" aria-label="上邊連線點">↑</button><span></span>
@@ -152,7 +152,7 @@
       </div>
       <div class="diagram-fields" id="diagram-fields"><fig-field><label for="diagram-text">圖形內文字</label><fig-input-text id="diagram-text" value="" placeholder="例如：是否通過驗證？"></fig-input-text></fig-field></div>
     </section>
-    <details><summary>操作提示</summary><p>直接顯示模式：Draw 後顯示可見 Frame、Component、Instance 及流程圖形的四邊節點，直接點兩個節點即可連線。每次最多 40 個物件；縮放或平移可切換範圍。巢狀元件可另外選取，或切換「選取後顯示」。</p><p>Figma Design 未開放畫布 hover 事件，因此這裡使用持續顯示節點。完成一條箭頭後，可繼續繪製下一條。選取既有箭頭可修改文字與樣式。</p><p>Plugin 開啟時，連線會隨 frame 移動。重新開啟可更新已保存的連線。Decision 圖形也可作為新連線的起點。</p><button class="ghost" id="refresh">更新連線位置</button></details>
+    <details><summary>操作提示</summary><p>預設只在選取物件後顯示該物件的四邊節點。「顯示可見節點」需手動開啟，每次最多 40 個物件。</p><p>Figma Design 尚未開放既有物件的畫布 hover 事件；本版本尚未實作 hover 才顯示節點。完成一條箭頭後，可繼續繪製下一條。選取既有箭頭可修改文字與樣式。</p><p>Plugin 開啟時，連線會隨 frame 移動。重新開啟可更新已保存的連線。Decision 圖形也可作為新連線的起點。</p><button class="ghost" id="refresh">更新連線位置</button></details>
   </fig-content>
   <fig-footer>
     <p class="selected-caption" id="selected-caption">新箭頭將使用上方設定</p>

@@ -13,13 +13,14 @@ Frame A --------< Decision >---> Frame B
 
 - **Optional direct anchors:** press **開始連線** to show side-midpoint ports on visible objects. Click a source port, then a target port; no object selection is required.
 - **Selection mode (default):** show four ports only on the selected object, useful for dense layouts and nested components.
+- **Easier anchor picking:** 40 x 40 screen-pixel hit areas around 14px dots, kept consistent across canvas zoom.
 - Elbow, straight and curved routes; single, double or no arrowhead; solid/dashed strokes; 1-8 px widths and custom HEX colors.
 - Editable arrow labels and midpoint Process, Decision or Start/End shapes. Diagram frames can be branching endpoints.
 - Contextual creation/edit actions, composed arrow preview, source/target names, compact panel and saved appearance preferences.
 - Inline validation, session-only drafts that survive selection/tool changes, and explicit delete confirmation. Unsaved drafts last until the plugin closes.
 - Reverse direction, cancellation, connection counts and Cmd/Ctrl+Enter to submit while the panel has focus.
 - Connected geometry updates while the plugin is open. Existing arrow parts are updated in place during movement.
-- **Range annotations:** marquee-select existing objects, or draw a rectangle with Figma's R tool and explicitly convert it. Create an unfilled dashed outline, an automatic per-page number, and an editable note on the left or right.
+- **Range annotations:** start with **框選範圍**, focus the canvas, press **R**, and draw a range before entering a note. The captured range stays available when selecting other objects. Existing-object selection and explicit rectangle conversion remain available. Create an unfilled dashed outline, an automatic per-page number, and an editable note on the left or right.
 - Annotation titles, multiline notes, colors, note widths and selection padding. Select any annotation child to reopen the editor; deleting a note group leaves the original frames untouched.
 - No accounts, analytics, remote services or network access are required by the plugin.
 
@@ -68,7 +69,7 @@ Select a generated arrow -> change settings -> 儲存變更
 
 ### Range annotations
 
-Switch to **範圍註記**, choose a range source, and enter a note. After creation, **新增另一個** starts the next annotation. Unsaved edits are retained when selecting other objects or switching tools, and are cleared only after successful saving or when the plugin closes.
+Switch to **範圍註記** and press **框選範圍**. Focus the canvas, press **R**, and drag a range; the note form appears after a new rectangle is captured. Figma does not expose tool activation to plugins, so the R step is required. Cancel or redraw removes only the captured draft; switching tools, selecting an existing annotation, changing pages or closing also clears that temporary range. After creation, **新增另一個** starts the next annotation. Unsaved edits are retained when selecting other objects or switching tools, and are cleared only after successful saving or when the plugin closes.
 
 
 
@@ -76,9 +77,11 @@ Switch to **範圍註記**, choose a range source, and enter a note. After creat
 Existing objects:
 Marquee-select objects -> enter note -> Create annotation
 
-Exact drawn range:
-Click canvas -> R -> drag rectangle -> select it
-            -> Convert range rectangle -> enter note -> Create annotation
+Exact drawn range (default):
+框選範圍 -> focus canvas -> R -> drag range -> enter note -> Create annotation
+
+Existing rectangle:
+Select rectangle -> 轉換矩形 -> enter note -> Create annotation
 
 Output:
 +--[01]--------------------+     +---------------------+
@@ -90,7 +93,7 @@ Edit:
 Select annotation or a child -> change text / side / width -> Save annotation
 ```
 
-Rectangle conversion **replaces only the selected rectangle**. It rejects locked rectangles, component/instance internals and auto-layout ancestors. Selection mode preserves every selected source object. Move the annotation group as a unit, or resize its border and save to reposition the note. Numbers increment per page and are retained when editing; deletion does not reuse numbers. Annotation ranges stay fixed rather than following source objects.
+Draw-range captures only a rectangle created after pressing the range action; existing rectangles are ignored. Start outside component instances and auto-layout containers. Rectangle conversion **replaces only the selected rectangle**. It rejects locked rectangles, component/instance internals and auto-layout ancestors. Selection mode preserves every selected source object. Move the annotation group as a unit, or resize its border and save to reposition the note. Numbers increment per page and are retained when editing; deletion does not reuse numbers. Annotation ranges stay fixed rather than following source objects.
 
 Labels, notes and geometry are saved in the Figma document using plugin data. Anyone with appropriate access to the document may be able to read that data; it is not a secret store. Appearance preferences omit label text and selected node IDs.
 
@@ -122,7 +125,7 @@ npm run verify:public
 - `tests/`: scene-graph test double and controller regression tests.
 - [Interaction design](docs/interaction-design.md), [validation](docs/validation.md), and [security review](docs/security-review.md).
 
-The current controller suite covers 30 scenarios, including annotation creation, editing, conversion, numbering, source preservation and asynchronous cancellation. The operation-count benchmark checks 100 geometry updates; it is not a Figma FPS measurement. Native verification of the v0.4 panel and the direct-port/range-annotation workflows is still pending. See the [product review](docs/product-review.md) for verified browser findings and remaining native checks.
+The current controller suite covers 38 scenarios, including annotation creation, editing, conversion, numbering, source preservation and asynchronous cancellation. The operation-count benchmark checks 100 geometry updates; it is not a Figma FPS measurement. The v0.4.1 panel passed 22 focused browser checks; native verification of the expanded hit areas and range capture is still pending. See the [product review](docs/product-review.md) for verified browser findings and remaining native checks.
 
 ## License
 

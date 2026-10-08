@@ -435,3 +435,108 @@ test('selection changing during cold endpoint lookup cancels arrow editing befor
     assert.equal(received.find(m=>m.type==='result'&&m.requestId==='lookup').ok,false);
   } finally {x.figma.emit('close');}
 });
+
+test('40px hit targets keep 14px dots and 2px strokes across zoom changes without reallocating', async () => {
+  const x=await setup('visible');
+  try {
+    await x.send({type:'start',style:defaults});const before=x.dots().map(n=>[n.id,n.children[0].id]);const allocated=x.figma.nodes.size;
+    for(const zoom of [.1,.25,.5,1,2,4,8]) {
+      x.figma.viewport.zoom=zoom;await x.send({type:'refresh'});
+      assert.deepEqual(x.dots().map(n=>[n.id,n.children[0].id]),before);
+      for(const hit of x.dots()) {
+        const dot=hit.children[0];assert.equal(hit.type,'FRAME');assert.equal(dot.type,'ELLIPSE');
+        assert.ok(Math.abs(hit.width*zoom-40)<.001);assert.ok(Math.abs(dot.width*zoom-14)<.001);assert.ok(Math.abs(dot.strokeWeight*zoom-2)<.001);
+        assert.ok(Math.abs(dot.x+dot.width/2-hit.width/2)<.001);assert.ok(Math.abs(dot.y+dot.height/2-hit.height/2)<.001);
+        assert.ok(hit.fills[0].opacity>0 && hit.fills[0].opacity<=.001);
+      }
+    }
+    assert.equal(x.figma.nodes.size,allocated);
+  } finally {x.figma.emit('close');}
+});
+test('clicking the visible child or the larger hit target selects the same endpoints', async () => {
+  const x=await setup('visible');
+  try {
+    await x.send({type:'start',style:defaults});
+    const from=x.dots().find(n=>n.name.endsWith('right')&&n.x+n.width/2===x.a.x+x.a.width);
+    const to=x.dots().find(n=>n.name.endsWith('left')&&n.x+n.width/2===x.b.x);
+    const fromDot=from.children[0];await x.choose(fromDot);assert.equal(x.state().source.id,x.a.id);assert.equal(x.state().source.side,'right');
+    await x.choose(to);await tick();assert.equal(x.edges().length,1);
+    const e=JSON.parse(x.edges()[0].getPluginData('click2arrow.v1'));assert.equal(e.source.id,x.a.id);assert.equal(e.target.id,x.b.id);
+    assert.equal(x.dots().length,8);await x.send({type:'stop'});assert.equal(x.dots().length,0);
+    assert.equal(fromDot.removed,true);assert.equal(x.a.removed,false);assert.equal(x.b.removed,false);
+  } finally {x.figma.emit('close');}
+});
+test('deleting a handle child regenerates only the missing hit target and never treats handles as endpoints', async () => {
+  const x=await setup('visible');
+  try {
+    await x.send({type:'start',style:defaults});const hit=x.dots()[0],others=x.dots().slice(1).map(n=>n.id);
+    hit.children[0].remove();await x.send({type:'refresh'});assert.equal(hit.removed,true);assert.equal(x.dots().length,8);
+    for(const id of others) assert.ok(x.dots().some(n=>n.id===id));
+    await x.send({type:'workflow',value:'annotations'});assert.equal(x.dots().length,0);
+    assert.equal(x.a.removed,false);assert.equal(x.b.removed,false);
+  } finally {x.figma.emit('close');}
+});
+
+test('draw-range starts explicitly, ignores existing rectangles and captures only a newly drawn rectangle', async () => {
+  const x=await setup(), old=x.figma.createRectangle();old.fills=[{type:'SOLID',color:{r:1,g:0,b:0}}];
+  try {
+    const before=JSON.stringify([old.name,old.fills,old.strokes]);
+    await x.send({type:'workflow',value:'annotations'});await x.choose(old);await x.send({type:'annotation-range-start'});await tick();
+    assert.equal(x.state().rangeCapture,'drawing');assert.equal(x.figma.currentPage.selection.length,0);
+    await x.choose(old);assert.equal(x.state().rangeCapture,'drawing');assert.equal(JSON.stringify([old.name,old.fills,old.strokes]),before);
+    const rect=x.figma.createRectangle();rect.x=120;rect.y=45;rect.resize(430,190);await x.choose(rect);
+    assert.equal(x.state().rangeCapture,'ready');assert.deepEqual({...x.state().range},{x:120,y:45,width:430,height:190});
+    assert.equal(rect.fills.length,0);assert.deepEqual(Array.from(rect.dashPattern),[8,5]);
+    await x.send({type:'workflow',value:'annotations'});assert.equal(rect.removed,false);assert.equal(x.state().rangeCapture,'ready');
+    await x.choose(x.a);assert.equal(x.state().rangeCapture,'ready');assert.equal(x.state().range.width,430);
+    await x.send({type:'annotation-create',mode:'draw',options:{text:'Pinned range'}});
+    const annotation=x.figma.currentPage.children.find(n=>n.getPluginData('c2a-role')==='annotation');assert.ok(annotation);
+    const border=annotation.children.find(n=>n.getPluginData('c2a-part')==='annotation-border');assert.deepEqual(border.absoluteBoundingBox,{x:120,y:45,width:430,height:190});
+    assert.equal(rect.removed,true);assert.equal(old.removed,false);assert.equal(x.a.removed,false);assert.equal(x.state().rangeCapture,'idle');
+  } finally {x.figma.emit('close');}
+});
+test('cancel, redraw, workflow switch, page change and close clean only owned range drafts', async () => {
+  for(const action of ['annotation-range-cancel','annotation-range-start','workflow','page','close']) {
+    const x=await setup(), old=x.figma.createRectangle();
+    try {
+      await x.send({type:'workflow',value:'annotations'});await x.send({type:'annotation-range-start'});
+      const rect=x.figma.createRectangle();await x.choose(rect);
+      if(action==='workflow') await x.send({type:action,value:'arrows'});
+      else if(action==='page'){const p=new x.figma.Node('PAGE');x.figma.root.appendChild(p);x.figma.changePage(p);}
+      else if(action==='close')x.figma.emit('close');else await x.send({type:action});
+      assert.equal(rect.removed,true,action);assert.equal(old.removed,false);assert.equal(x.a.removed,false);
+    } finally {x.figma.emit('close');}
+  }
+});
+test('draw-range never converts locked, instance or auto-layout rectangles', async () => {
+  const x=await setup();
+  try {
+    await x.send({type:'workflow',value:'annotations'});await x.send({type:'annotation-range-start'});
+    const locked=x.figma.createRectangle();locked.locked=true;await x.choose(locked);assert.equal(x.state().rangeCapture,'drawing');
+    const parent=x.figma.createFrame();parent.layoutMode='HORIZONTAL';const rect=x.figma.createRectangle();parent.appendChild(rect);await x.choose(rect);
+    assert.equal(x.state().rangeCapture,'drawing');assert.equal(rect.getPluginData('c2a-role'),'');
+    const instance=new x.figma.Node('INSTANCE');x.figma.currentPage.appendChild(instance);const nested=x.figma.createRectangle();instance.appendChild(nested);await x.choose(nested);assert.equal(x.state().rangeCapture,'drawing');assert.equal(nested.getPluginData('c2a-role'),'');
+    await x.send({type:'annotation-create',mode:'draw',options:{text:'No range'}});assert.equal(x.state().error,true);assert.equal(rect.removed,false);
+  } finally {x.figma.emit('close');}
+});
+test('draw-range rejects invalidated drafts and preserves them on font failure', async () => {
+  const x=await setup();
+  try {
+    await x.send({type:'workflow',value:'annotations'});await x.send({type:'annotation-range-start'});
+    const rect=x.figma.createRectangle();await x.choose(rect);
+    x.figma.loadFontAsync=async()=>{throw new Error('Font unavailable');};
+    await x.send({type:'annotation-create',mode:'draw',options:{text:'Keep draft'}});assert.equal(x.state().error,true);assert.equal(rect.removed,false);assert.equal(x.state().rangeCapture,'ready');
+    rect.locked=true;await x.choose(x.a);assert.equal(x.state().rangeCapture,'invalid');
+    await x.send({type:'annotation-create',mode:'draw',options:{text:'Unsafe'}});assert.equal(x.state().error,true);assert.equal(rect.removed,false);
+  } finally {x.figma.emit('close');}
+});
+test('a captured range is revalidated after asynchronous font loading', async () => {
+  const x=await setup();
+  try {
+    await x.send({type:'workflow',value:'annotations'});await x.send({type:'annotation-range-start'});
+    const rect=x.figma.createRectangle();await x.choose(rect);let release;
+    x.figma.loadFontAsync=()=>new Promise(r=>release=r);
+    const save=x.send({type:'annotation-create',mode:'draw',options:{text:'Do not create'}});rect.locked=true;release();await save;
+    assert.equal(x.state().error,true);assert.equal(rect.removed,false);assert.equal(x.figma.currentPage.children.filter(n=>n.getPluginData('c2a-role')==='annotation').length,0);
+  } finally {x.figma.emit('close');}
+});

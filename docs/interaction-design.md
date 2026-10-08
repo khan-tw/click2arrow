@@ -10,7 +10,7 @@ Reduce repeated manual line drawing, endpoint alignment and flow annotation betw
 Requested:
 Draw -> hover object -> four side ports -> source click -> target click
 
-Current default (v0.4):
+Current default (v0.4.1):
 Draw -> select object -> four side ports -> source click
      -> select target -> four side ports -> target click
 
@@ -76,7 +76,7 @@ All document mutation, endpoint validation and saved connection data belong to `
 Idle arrow   -> Start connection
 Drawing      -> End connection / Cancel source
 Selected edge -> Save changes / Reverse / Delete
-New note     -> Create annotation
+New note     -> Draw range -> native R drag -> note form -> Create annotation
 Selected note -> Save annotation / New annotation / Delete
 ```
 
@@ -99,6 +99,10 @@ Deleting or removing a diagram that other arrows reference leaves those branch a
 ## Range annotation behavior
 
 ```text
+Default: Draw range -> focus canvas -> R -> native drag -> captured range
+        -> note form -> Create annotation
+Redraw / Cancel -> discard only the temporary captured range
+
 Native marquee selection -> bounds + padding -> Create annotation
 Native R rectangle       -> exact bounds     -> Convert selected rectangle
 
@@ -108,7 +112,7 @@ Annotation group
   +-- Side note card (number, optional title, multiline text)
 ```
 
-The plugin uses Figma's native selection and rectangle tools rather than intercepting canvas pointer events. Rectangle conversion is explicit and consumes only that rectangle after successful creation. Locked layers, component internals and auto-layout ancestors cannot be converted. Marquee mode only reads selected bounds and leaves source layers untouched.
+The plugin uses Figma's native selection and rectangle tools. The public API does not expose tool activation, so users must press R after the range action; this is not a one-click custom canvas tool. Existing rectangle IDs are recorded at that explicit action, then a newly drawn, eligible rectangle is captured, styled as an unfilled dashed range, and retained while the user enters a note. Unrelated object selections cannot replace it. Cancel, redraw, workflow/page changes, selecting a saved annotation, and close remove only the owned draft. Clicking the active tab is a no-op. Rectangle conversion is explicit and consumes only that rectangle after successful creation. Locked layers, component internals and auto-layout ancestors cannot be converted. Marquee mode only reads selected bounds and leaves source layers untouched.
 
 The page stores the next number. Creation also checks existing annotation numbers, so reopening, deletion and importing a higher numbered group do not reset the sequence. Notes are native editable text. Selection reads their current characters rather than overwriting native text edits from stale metadata. Apply updates owned parts in place, retains the number, and preserves the outlined area when changing the note side, including after moving or rotating the group.
 
@@ -117,6 +121,10 @@ Ranges are fixed; they do not track selected source objects. Resizing the border
 ## Next design decisions
 
 The current version deliberately has one intermediate diagram per arrow. Multiple movable intermediate steps, automatic avoidance of unrelated objects, editing outside the plugin without metadata drift, and global keyboard shortcuts require additional interaction design. Native hover requires a platform API change.
+
+## Anchor hit areas (v0.4.1)
+
+Each side midpoint has a 40 x 40 screen-pixel nearly transparent hit frame around a centered 14px visible circle. Both the parent and dot resolve to the same endpoint. Their canvas dimensions follow zoom while IDs remain stable. Native hit behavior remains pending verification; the controller tests prove sizing and event routing only.
 
 ## v0.2 performance contract
 

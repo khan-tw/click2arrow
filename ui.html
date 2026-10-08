@@ -138,10 +138,10 @@
   <section id="help-panel" class="help-panel" hidden>
     <h2>在既有畫面上補上流程</h2>
     <ol><li>按「開始連線」，選取 frame 或 component。</li><li>點物件四邊的起點，再選另一個物件並點終點。</li><li>選取已建立的箭頭，即可修改文字與樣式。</li></ol>
-    <p class="help-text">範圍註記：框選物件，或按 <kbd>R</kbd> 畫矩形，再建立編號外框與旁側備註。</p>
+    <p class="help-text">範圍註記：按「框選範圍」，點畫布後按 <kbd>R</kbd> 拖出範圍，再填寫備註。Figma 目前需要用快捷鍵啟用矩形工具。</p>
     <p class="help-text">切換選取時，未儲存草稿會保留到本次 plugin 關閉。按 <kbd>⌘ / Ctrl</kbd> + <kbd>Enter</kbd> 儲存；面板內按 <kbd>Esc</kbd> 取消起點。</p>
     <p class="help-text">連線只在 plugin 開啟時跟隨物件。註記範圍固定，可調整外框後儲存。節點目前在選取後顯示，尚不支援 hover。</p>
-    <button id="refresh" class="text-button">更新此頁連線位置</button><p class="help-text">Click2Arrow v0.4.0 · 僅在 Figma 文件內儲存</p>
+    <button id="refresh" class="text-button">更新此頁連線位置</button><p class="help-text">Click2Arrow v0.4.1 · 僅在 Figma 文件內儲存</p>
   </section>
   <section id="arrows-panel" aria-label="流程連線設定">
     <div class="context">
@@ -165,12 +165,16 @@
   </section>
   <section id="annotations-panel" aria-label="範圍註記設定" hidden>
     <div class="context-heading" style="margin-bottom:12px"><h2 id="annotation-heading">新增範圍註記</h2><button id="new-annotation" class="text-button" hidden>新增另一個</button></div>
-    <div id="range-picker" class="segments" aria-label="註記範圍來源"><button data-range="selection" aria-pressed="true">框選物件</button><button data-range="rectangle" aria-pressed="false">轉換矩形</button></div>
+    <div id="range-picker" class="segments" aria-label="註記範圍來源"><button data-range="draw" aria-pressed="true">自行框選</button><button data-range="selection" aria-pressed="false">選取物件</button><button data-range="rectangle" aria-pressed="false">轉換矩形</button></div>
     <div class="range-selection"><div id="annotation-number" class="number-badge">01</div><div><strong id="range-title">在畫布框選要註記的物件</strong><p id="range-description">依選取範圍建立虛線外框</p></div></div>
+    <div id="range-actions" class="context-heading" style="margin-bottom:12px" hidden><button id="range-restart" class="text-button">重新框選</button><button id="range-cancel" class="text-button">取消框選</button></div>
+    <div id="range-instructions" class="context"><h2>先框範圍，再寫備註</h2><p>按下方「框選範圍」，點一下畫布後按 <kbd>R</kbd>，拖出需要標註的區域。範圍可以跨越多個畫面。</p></div>
+    <div id="note-fields" hidden>
     <fig-field><label for="annotation-title">標題<span class="optional">選填</span></label><fig-input-text id="annotation-title" value="" maxlength="80" placeholder="例如：登入流程"></fig-input-text></fig-field>
     <fig-field><div class="inline-label"><label for="annotation-text">文字備註</label><span id="note-count">0 / 2000</span></div><fig-input-text id="annotation-text" multiline value="" maxlength="2000" placeholder="說明這個範圍的操作、規則或注意事項…" aria-describedby="note-error"></fig-input-text><p id="note-error" class="field-error" hidden>請填寫文字備註。</p></fig-field>
     <div class="position-picker"><span class="section-label">備註位置</span><div class="segments" aria-label="備註位置"><button data-note-side="left" aria-pressed="false"><svg width="28" height="18" viewBox="0 0 28 18" fill="none" stroke="currentColor" aria-hidden="true"><path d="M2 5h8M2 9h8M2 13h6"/><rect x="14" y="2" width="12" height="14" rx="1" stroke-dasharray="2 2"/></svg>左側</button><button data-note-side="right" aria-pressed="true"><svg width="28" height="18" viewBox="0 0 28 18" fill="none" stroke="currentColor" aria-hidden="true"><rect x="2" y="2" width="12" height="14" rx="1" stroke-dasharray="2 2"/><path d="M18 5h8M18 9h8M18 13h6"/></svg>右側</button></div></div>
     <details class="disclosure"><summary>外框與備註設定<span class="muted">顏色、尺寸</span></summary><div class="details-content"><div class="form-row"><fig-field><label for="annotation-color">顏色</label><fig-input-text id="annotation-color" value="#d97706" maxlength="7" aria-describedby="annotation-color-error"></fig-input-text><p id="annotation-color-error" class="field-error" hidden>輸入完整 HEX，例如 #D97706。</p></fig-field><fig-field class="narrow"><label for="annotation-width">備註寬度 · px</label><fig-input-number id="annotation-width" value="240" min="160" max="480" aria-describedby="annotation-width-error"></fig-input-number><p id="annotation-width-error" class="field-error" hidden>範圍為 160–480。</p></fig-field></div><fig-field id="annotation-padding-field"><label for="annotation-padding">外框留白 · px</label><fig-input-number id="annotation-padding" value="16" min="0" max="100" aria-describedby="annotation-padding-error"></fig-input-number><p id="annotation-padding-error" class="field-error" hidden>範圍為 0–100。</p></fig-field><p class="help-text">調整畫布上的外框後，按「儲存註記」更新備註位置。</p></div></details>
+    </div>
   </section>
 </fig-content>
 <fig-footer>
@@ -188,7 +192,7 @@
   const post = message => parent.postMessage({ pluginMessage: message }, '*');
   const defaults = { route:'elbow', color:'#2563eb', weight:2, arrows:'end', dashed:false, label:'', diagram:'none', diagramText:'' };
   const noteDefaults = { title:'', text:'', color:'#d97706', position:'right', padding:16, noteWidth:240 };
-  let state = null, workflow = 'arrows', rangeMode = 'selection', compact = false, dirty = false, baseline = '', currentKey = '', editingId = null;
+  let state = null, workflow = 'arrows', rangeMode = 'draw', compact = false, dirty = false, baseline = '', currentKey = '', editingId = null;
   let style = {...defaults}, noteSide = 'right', pending = null, requestNumber = 0, feedbackSequence = -1, readyTimer;
   const drafts = new Map();
   const active = (attr, value) => document.querySelectorAll('['+attr+']').forEach(b => b.setAttribute('aria-pressed', String(b.getAttribute(attr) === value)));
@@ -214,7 +218,7 @@
   }
   function validNote(show = true) {
     const n=readNote(), color=/^#[0-9a-f]{6}$/i.test(n.color), width=Number.isFinite(n.noteWidth) && n.noteWidth>=160 && n.noteWidth<=480;
-    const padding=rangeMode==='rectangle' || !!editingId || Number.isFinite(n.padding) && n.padding>=0 && n.padding<=100 && String($('annotation-padding').value).trim()!=='';
+    const padding=rangeMode!=='selection' || !!editingId || Number.isFinite(n.padding) && n.padding>=0 && n.padding<=100 && String($('annotation-padding').value).trim()!=='';
     if (show) {fieldError('annotation-color',color);fieldError('annotation-width',width);fieldError('annotation-padding',padding);}
     return !!n.text.trim() && color && width && padding;
   }
@@ -241,21 +245,24 @@
     text('save-state',!state?'連線中':locked?'處理中…':dirty?(editing?'尚未儲存':'草稿'):editing?'已儲存':annotation?'新註記':(state.connectionCount||0)+' 條連線');
     if (annotation) {
       const a=state?.annotation, count=state?.annotationSelectionCount||0, number=a?.number||state?.annotationNext||1;
+      const free=rangeMode==='draw', capture=state?.rangeCapture||'idle', ready=capture==='ready', waiting=free && !a && !ready;
       text('annotation-number',String(number).padStart(2,'0'));text('annotation-heading',a?'編輯註記 #'+String(number).padStart(2,'0'):'新增範圍註記');
-      $('new-annotation').hidden=!a;$('range-picker').hidden=!!a;$('annotation-padding-field').hidden=!!a || rangeMode==='rectangle';
+      $('new-annotation').hidden=!a;$('range-picker').hidden=!!a;$('annotation-padding-field').hidden=!!a || rangeMode!=='selection';
+      $('note-fields').hidden=waiting;$('range-instructions').hidden=!waiting;$('range-actions').hidden=!!a || !free || capture==='idle';
+      $('range-restart').hidden=capture==='drawing';
       text('note-count',readNote().text.length+' / 2000');
-      text('range-title',a?'範圍已建立':count?(rangeMode==='rectangle'?'已選取範圍矩形':'已選取 '+count+' 個物件'):rangeMode==='rectangle'?'先按 R，在畫布畫出矩形':'在畫布框選要註記的物件');
+      text('range-title',a?'範圍已建立':free?(ready?'範圍已記住':capture==='drawing'?'到畫布拖出範圍':capture==='invalid'?'範圍已移除或無法使用':'1. 框選要註記的範圍'):count?(rangeMode==='rectangle'?'已選取範圍矩形':'已選取 '+count+' 個物件'):'在畫布選取範圍');
       const bounds=state?.range;const dimensions=bounds?Math.round(bounds.width)+' × '+Math.round(bounds.height)+' px':'';
-      text('range-description',a?'調整外框後儲存，可更新備註位置':rangeMode==='rectangle'?(state?.annotationCanConvert?'將替換所選矩形 · '+dimensions:count?'請選取一個可編輯的獨立矩形':'選取矩形後，再填寫文字備註'):count?dimensions+' · 保留原有物件':'依選取範圍建立虛線外框');
-      text('selection-caption',a?'註記 #'+String(number).padStart(2,'0'):rangeMode==='rectangle'?'矩形將轉換為註記':'外框、編號與旁側備註');
-      text('primary',pending?.type==='annotation-create'?'建立中…':pending?.type==='annotation-apply'?'儲存中…':a?'儲存註記':'建立註記');
-      const canCreate=rangeMode==='rectangle'?state?.annotationCanConvert:state?.annotationCanCreate;
-      $('primary').disabled=locked || !validNote() || !(a?a.editable:canCreate);$('delete').disabled=locked || !a?.editable;
-      if (!locked && !a && !count) notice(rangeMode==='rectangle'?'點畫布後按 R，拖曳出需要註記的範圍。':'先在畫布框選物件，再填寫備註。');
+      text('range-description',a?'調整外框後儲存，可更新備註位置':free?(ready?dimensions+' · 接著填寫下方備註':capture==='drawing'?'點畫布 → 按 R → 拖曳框選；完成後回來填寫備註':capture==='invalid'?'請重新框選；原有物件不受影響':'可圈住局部區域，或跨越多個畫面'):rangeMode==='rectangle'?(state?.annotationCanConvert?'將替換所選矩形 · '+dimensions:count?'請選取一個可編輯的獨立矩形':'選取矩形後，再填寫文字備註'):count?dimensions+' · 保留原有物件':'依選取範圍建立虛線外框');
+      text('selection-caption',a?'註記 #'+String(number).padStart(2,'0'):free?(ready?'2. 填寫備註':'1. 框選範圍'):'外框、編號與旁側備註');
+      text('primary',pending?.type==='annotation-create'?'建立中…':pending?.type==='annotation-apply'?'儲存中…':a?'儲存註記':waiting?(capture==='drawing'?'等待畫布框選…':capture==='invalid'?'重新框選範圍':'框選範圍'):'建立註記');
+      const canCreate=free?ready:rangeMode==='rectangle'?state?.annotationCanConvert:state?.annotationCanCreate;
+      $('primary').disabled=locked || (waiting?capture==='drawing':!validNote() || !(a?a.editable:canCreate));$('delete').disabled=locked || !a?.editable;
+      if (!locked && waiting) notice(capture==='drawing'?'點畫布後按 R，拖出範圍。請在元件與自動排版容器外開始。':capture==='invalid'?'範圍已移除、隱藏或鎖定，請重新框選。':'按「框選範圍」開始，接著到畫布按 R 拖曳。',capture==='invalid');
+      else if (!locked && !a && !canCreate) notice(rangeMode==='rectangle'?'請選取一個可編輯的獨立矩形。':'請在畫布選取 1 至 100 個物件。');
       else if (!locked && a && !a.editable) notice('請將註記移至頁面最上層並解除鎖定，再編輯。',true);
       else if (!locked && !readNote().text.trim()) notice(editing?'備註不可留空，請補上文字後儲存。':'填寫文字備註後即可建立。');
       else if (!locked && !validNote(false)) notice('請修正標示的顏色或尺寸，再儲存。',true);
-      else if (!locked && !a && count && !canCreate) notice(rangeMode==='rectangle'?'請選取一個獨立矩形；鎖定、元件或自動排版內的矩形無法轉換。':'請框選 1 至 100 個原有物件。',true);
     } else {
       text('task-title',state?.drawing?(state.source?'選擇終點':'選擇起點'):editing?'編輯這條連線':'連接兩個畫面');
       text('task-badge',state?.drawing?'連線中':editing?'編輯模式':'準備開始');$('task-badge').classList.toggle('changed',!!state?.drawing);
@@ -283,23 +290,24 @@
   }
   function submit() {
     if ($('primary').disabled) return;
-    if (workflow==='annotations') {if(validNote()) send(editingId?'annotation-apply':'annotation-create',{options:readNote(),mode:rangeMode});}
+    if (workflow==='annotations') {if(!editingId && rangeMode==='draw' && state.rangeCapture!=='ready'){send('annotation-range-start');return;}if(validNote()) send(editingId?'annotation-apply':'annotation-create',{options:readNote(),mode:rangeMode});}
     else if (state.drawing) send('stop');else if(validStyle()) send(editingId?'apply':'start',{style:readStyle()});
   }
   for (const key of ['route','color','arrows','diagram']) document.querySelectorAll('[data-'+key+']').forEach(b=>b.addEventListener('click',()=>{style[key]=b.getAttribute('data-'+key);if(key==='color') $('hex').value=style.color;active('data-'+key,style[key]);changed();}));
   $('dashed').addEventListener('click',()=>{style.dashed=!style.dashed;$('dashed').setAttribute('aria-pressed',String(style.dashed));changed();});
   ['hex','weight','label','diagram-text','annotation-title','annotation-text','annotation-color','annotation-width','annotation-padding'].forEach(id=>{ $(id).addEventListener('input',changed);$(id).addEventListener('change',changed); });
   document.querySelectorAll('[data-note-side]').forEach(b=>b.addEventListener('click',()=>{noteSide=b.getAttribute('data-note-side');active('data-note-side',noteSide);changed();}));
-  document.querySelectorAll('[data-range]').forEach(b=>b.addEventListener('click',()=>{rangeMode=b.getAttribute('data-range');active('data-range',rangeMode);render();}));
+  document.querySelectorAll('[data-range]').forEach(b=>b.addEventListener('click',()=>{const next=b.getAttribute('data-range');if(next===rangeMode)return;rangeMode=next;active('data-range',rangeMode);if(state?.rangeCapture!=='idle')send('annotation-range-cancel');else render();}));
   document.querySelectorAll('[data-workflow]').forEach(b=>b.addEventListener('click',()=>send('workflow',{value:b.getAttribute('data-workflow')})));
   document.querySelectorAll('[data-mode]').forEach(b=>b.addEventListener('click',()=>send('anchors',{mode:b.getAttribute('data-mode')})));
   document.querySelectorAll('[data-port]').forEach(b=>b.addEventListener('click',()=>send('port',{side:b.getAttribute('data-port')})));
+  $('range-restart').addEventListener('click',()=>send('annotation-range-start'));$('range-cancel').addEventListener('click',()=>send('annotation-range-cancel'));
   $('primary').addEventListener('click',submit);$('cancel').addEventListener('click',()=>send('cancel'));$('reverse').addEventListener('click',()=>send('reverse'));$('refresh').addEventListener('click',()=>send('refresh'));$('new-annotation').addEventListener('click',()=>send('annotation-new'));
   $('compact').addEventListener('click',()=>{compact=!compact;post({type:'compact',value:compact});render();});
   $('help').addEventListener('click',()=>{const open=$('help-panel').hidden;$('help-panel').hidden=!open;$('help').setAttribute('aria-expanded',String(open));if(open) $('content').scrollTop=0;});
   $('delete').addEventListener('click',()=>{text('delete-description',workflow==='annotations'?'刪除這組註記？原有畫面會保留。':'刪除這條連線？連接的畫面會保留。');$('confirm-delete').hidden=false;$('keep').focus();});
   $('keep').addEventListener('click',()=>{$('confirm-delete').hidden=true;$('delete').focus();});$('confirm').addEventListener('click',()=>send(workflow==='annotations'?'annotation-delete':'delete'));
-  document.addEventListener('keydown',e=>{if((e.metaKey||e.ctrlKey)&&e.key==='Enter'){e.preventDefault();submit();}if(e.key==='Escape'){if(!$('confirm-delete').hidden){e.preventDefault();$('keep').click();}else if(state?.drawing && state.source){e.preventDefault();send('cancel');}}});
+  document.addEventListener('keydown',e=>{if((e.metaKey||e.ctrlKey)&&e.key==='Enter'){e.preventDefault();submit();}if(e.key==='Escape'){if(!$('confirm-delete').hidden){e.preventDefault();$('keep').click();}else if(workflow==='annotations' && state?.rangeCapture!=='idle'){e.preventDefault();send('annotation-range-cancel');}else if(state?.drawing && state.source){e.preventDefault();send('cancel');}}});
   function ready() {clearTimeout(readyTimer);post({type:'ready',channel});readyTimer=setTimeout(()=>{if(!state){$('connection-error').hidden=false;notice('未收到 Figma 回應，請重新連線。',true);}},7000);}
   $('retry').addEventListener('click',()=>{$('connection-error').hidden=true;ready();});
   window.addEventListener('message',event=>{

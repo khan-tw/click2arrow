@@ -2,7 +2,7 @@
 
 ## Automated coverage
 
-The controller suite has 30 scenarios covering:
+The controller suite has 38 scenarios covering:
 
 - Four side anchors, connection creation and preservation of source objects.
 - Same-object rejection, cancellation, stopping and close cleanup.
@@ -40,11 +40,20 @@ The generated native panel also passed browser interaction checks for creating a
 
 The v0.4 generated panel passed 57 browser checks, including source/target flow, previews, edit/delete confirmation, draft restoration, reverting a draft, annotation conversion, failed-save recovery, null-source host messages and foreign-channel rejection. Console output contained no errors or warnings. Light/dark and compact screenshots were inspected; dark mode used simulated Figma theme tokens. The three initially failing SVG visibility checks passed after switching to explicit hidden attributes.
 
+## v0.4.1 regression coverage
+
+- 40 x 40 screen-pixel hit areas retain 14px dots and 2px strokes at 10%, 25%, 50%, 100%, 200%, 400% and 800% zoom; resizing retains IDs and allocates no nodes.
+- Selecting either a hit frame or its visible dot resolves the same endpoint. Removing one dot replaces only that handle; stop/workflow changes clean up both layers.
+- Draw-range starts explicitly, ignores existing rectangles and remembers the new rectangle across unrelated selections. Clicking the active annotation tab preserves the range.
+- Redraw, cancel, workflow changes, page changes and closing clean only owned range drafts. Invalid or unsafe containers are rejected; font failures preserve the draft and asynchronous saving revalidates it.
+
+The actual generated panel passed 22 focused browser checks against synthetic scene nodes: default range action, R guidance, form sequencing, pinned dimensions, note preservation, creation, redraw, cancel, alternate range sources and both anchor target layers. Browser console output contained no errors or warnings. Initial and ready-range panel screenshots were inspected. These checks do not establish native Figma hit testing or mouse-drag behavior.
+
 ## Native status
 
 Earlier native smoke testing covered plugin import, the panel, selection-mode anchors, Frame/Component connection, labels, Decision shapes, reopening and movement synchronization.
 
-The v0.4 panel, direct-port workflow, range annotations and open-source packaging still require a native interaction pass. An earlier native smoke found the v0.3 panel did not reflect workflow changes. The v0.4 channel-based bridge removes the parent-WindowProxy assumption; confirmation in the native host is pending. Native testing was interrupted by the Mac lock screen. Browser testing uses the actual generated panel connected to the scene-graph test double; it verifies controls and message wiring, not Figma canvas drag behavior or native font rendering. Screenshots of private editor sessions are not distributed as test evidence.
+The v0.4.1 expanded anchor hit areas and draw-range capture still require a native interaction pass. The latest attempt could not activate the dedicated test document; input was stopped without operating on another document. An earlier native smoke found the v0.3 panel did not reflect workflow changes. The v0.4 channel-based bridge removes the parent-WindowProxy assumption; confirmation in the native host is pending. Native testing was interrupted by the Mac lock screen. Browser testing uses the actual generated panel connected to the scene-graph test double; it verifies controls and message wiring, not Figma canvas drag behavior or native font rendering. Screenshots of private editor sessions are not distributed as test evidence.
 
 ## Manual smoke checklist
 
@@ -59,7 +68,10 @@ Compact -> panel resizes; Expand -> controls return
 Selection mode -> only the selected object's ports appear
 Stop / close -> temporary ports disappear
 Reopen -> saved connection remains editable
-Range annotation -> marquee-select objects -> type note -> Create annotation
+Range annotation -> 框選範圍 -> focus canvas -> R -> drag range
+Return to panel -> type note -> Create annotation
+Redraw / Cancel -> only the owned draft disappears
+Existing-object mode -> marquee-select objects -> type note -> Create annotation
 R -> draw rectangle -> Convert range rectangle -> Create annotation
 Selected rectangle is replaced; other screen layers remain unchanged
 Select annotation child -> edit text / note side -> Save annotation

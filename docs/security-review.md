@@ -28,3 +28,7 @@ Automated scans detect known patterns and known dependency advisories; they are 
 The UI/controller bridge now echoes a random per-panel channel rather than relying on a parent WindowProxy. Channel values and unsaved drafts are held in runtime memory; they are not written to plugin data or sent to a network service. All status, labels and note previews use text content, not HTML interpolation.
 
 The reviewed update also checks the live selected object before edits/deletes and after asynchronous lookups. A rejected busy operation cannot report successful saving. Native packages, screenshots, private diagnostics and account-library source remain excluded from the public tree.
+
+## v0.4.1 review scope
+
+The anchor change adds only local temporary scene nodes; it adds no permissions or networking. Range capture stores existing rectangle IDs in session memory, captures only a new eligible rectangle after an explicit action, and removes only that owned draft when cancelled. The native R shortcut remains explicit in the UI. Private editor screenshots, automation helpers, account-library identifiers and generated install packages remain outside the public index.

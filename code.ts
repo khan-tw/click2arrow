@@ -16,14 +16,14 @@ type Style = {
 type Edge = { version: 1; source: Endpoint; target: Endpoint; style: Style }
 type Message =
   | { type: 'ready'; channel?: string }
-  | { type: 'stop' | 'cancel' | 'delete' | 'refresh' | 'annotation-new' }
+  | { type: 'stop' | 'cancel' | 'delete' | 'refresh' | 'annotation-new' | 'annotation-range-start' | 'annotation-range-cancel' }
   | { type: 'reverse' }
   | { type: 'compact'; value: boolean }
   | { type: 'start' | 'style' | 'apply'; style: Style }
   | { type: 'port'; side: Side }
   | { type: 'anchors'; mode: 'visible' | 'selection' }
   | { type: 'workflow'; value: 'arrows' | 'annotations' }
-  | { type: 'annotation-create'; mode: 'selection' | 'rectangle'; options: AnnotationOptions }
+  | { type: 'annotation-create'; mode: 'draw' | 'selection' | 'rectangle'; options: AnnotationOptions }
   | { type: 'annotation-apply'; options: AnnotationOptions }
   | { type: 'annotation-delete' }
 const defaults: Style = { route: 'elbow', color: '#2563eb', weight: 2, arrows: 'end', dashed: false, label: '', diagram: 'none', diagramText: '' }
@@ -40,6 +40,7 @@ let workflow: 'arrows' | 'annotations' = 'arrows'
 let uiChannel = ''
 let feedback = { message: '', error: false, sequence: 0 }
 let editingAnnotation: FrameNode | null = null
+let rangeCapture: { existing: Set<string>; node: RectangleNode | null } | null = null
 let busy = false
 let isClosed = false
 let page = figma.currentPage
@@ -47,7 +48,8 @@ let revision = 0
 let timer: ReturnType<typeof setTimeout> | undefined
 let syncTimer: ReturnType<typeof setTimeout> | undefined
 let refreshing = false
-const handles = new Map<string, { node: EllipseNode; endpoint: Endpoint; target: SceneNode }>()
+type Handle = { node: FrameNode; dot: EllipseNode; endpoint: Endpoint; target: SceneNode }
+const handles = new Map<string, Handle>()
 const endpointCache = new Map<string, SceneNode>()
 const partStyles = new Map<string, string>()
 const tracked = new Map<string, { node: FrameNode; fingerprint: string }>()
@@ -75,7 +77,7 @@ function data(node: BaseNode): Edge | null {
   } catch { return null }
 }
 function target(node: SceneNode | null): node is FrameNode | ComponentNode | InstanceNode | ComponentSetNode {
-  return !!node && !node.removed && node.visible && !node.locked && !['edge', 'label', 'annotation', 'annotation-note', 'annotation-badge'].includes(node.getPluginData('c2a-role')) && node.name !== 'Flow label' &&
+  return !!node && !node.removed && node.visible && !node.locked && !['edge', 'label', 'annotation', 'annotation-note', 'annotation-badge', 'handle', 'handle-dot'].includes(node.getPluginData('c2a-role')) && node.name !== 'Flow label' &&
     ['FRAME', 'COMPONENT', 'INSTANCE', 'COMPONENT_SET'].includes(node.type)
 }
 function transform(n: SceneNode, p: Point): Point {
@@ -211,7 +213,23 @@ function nextAnnotationNumber(): number {
   return next
 }
 function annotationSelection(): SceneNode[] {
-  return page.selection.filter(n => !n.removed && n.visible && n.getPluginData('c2a-role') !== 'handle' && !ownedAnnotation(n))
+  return page.selection.filter(n => !n.removed && n.visible && !handleFor(n) && !['handle', 'range-draft'].includes(n.getPluginData('c2a-role')) && !ownedAnnotation(n))
+}
+function clearRangeCapture(): void {
+  const node = rangeCapture?.node
+  rangeCapture = null
+  if (node && !node.removed && node.getPluginData('c2a-role') === 'range-draft') node.remove()
+}
+function captureRange(): void {
+  if (!rangeCapture || rangeCapture.node || busy) return
+  const selected = page.selection
+  if (!convertibleRectangle(selected) || rangeCapture.existing.has(selected[0].id)) return
+  try { annotationBounds(selected, 0) } catch { return }
+  const node = selected[0]
+  rangeCapture.node = node; rangeCapture.existing.clear()
+  node.setPluginData('c2a-role', 'range-draft'); node.name = 'Click2Arrow range draft'
+  node.fills = []; node.strokes = [paint(annotationDefaults.color)]; node.strokeWeight = 2; node.dashPattern = [8, 5]
+  report('範圍已記住。填寫備註後按「建立註記」。')
 }
 function convertibleRectangle(nodes: readonly SceneNode[]): nodes is [RectangleNode] {
   if (nodes.length !== 1 || nodes[0].removed || !nodes[0].visible || nodes[0].type !== 'RECTANGLE' || nodes[0].locked || ownedAnnotation(nodes[0])) return false
@@ -273,8 +291,10 @@ function renderAnnotation(frame: FrameNode, a: RangeAnnotation, box: Box, axes?:
   frame.name = `Annotation ${number}${o.title.trim() ? ': ' + o.title : ''}`
   frame.setRelaunchData({ [RELAUNCH]: 'Edit range annotation' })
 }
-async function createAnnotation(mode: 'selection' | 'rectangle', value: AnnotationOptions): Promise<void> {
-  const options = annotationOptions(value), selected = [...page.selection], nodes = annotationSelection(), currentPage = page, rev = revision
+async function createAnnotation(mode: 'draw' | 'selection' | 'rectangle', value: AnnotationOptions): Promise<void> {
+  const captured = mode === 'draw' ? rangeCapture?.node : null
+  const options = annotationOptions(value), selected = captured ? [captured] : [...page.selection], nodes = captured ? [captured] : annotationSelection(), currentPage = page, rev = revision
+  if (mode === 'draw' && (!captured || !convertibleRectangle([captured]))) throw new Error('請先按「框選範圍」，再按 R 畫出新的範圍。')
   if (!options.text.trim()) throw new Error('請先輸入文字備註。')
   if (nodes.length !== selected.length) throw new Error('請選取要註記的原有物件，不包含既有註記或連線點。')
   if (mode === 'rectangle' && !convertibleRectangle(selected)) throw new Error('請選取一個可編輯的矩形；元件或自動排版內的矩形無法轉換。')
@@ -285,13 +305,15 @@ async function createAnnotation(mode: 'selection' | 'rectangle', value: Annotati
   try {
     await figma.loadFontAsync({ family: 'Inter', style: 'Regular' })
     if (isClosed || page !== currentPage || rev !== revision) return
-    if (mode === 'rectangle' && !convertibleRectangle(selected)) throw new Error('矩形已變更，請重新選取。')
+    if (mode !== 'selection' && !convertibleRectangle(selected)) throw new Error('矩形已變更，請重新框選。')
+    if (mode === 'draw' && rangeCapture?.node !== captured) throw new Error('範圍已變更，請重新框選。')
     const box = annotationBounds(nodes, mode === 'selection' ? options.padding : 0), number = nextAnnotationNumber()
     if (number > 9999) throw new Error('此頁面的註記編號已用完，請新增頁面。')
     frame = figma.createFrame(); page.appendChild(frame)
     renderAnnotation(frame, { version: 1, number, options }, box)
-    // Only explicit rectangle-conversion mode consumes the selected rectangle.
-    if (mode === 'rectangle') selected[0].remove()
+    // Only an explicitly drawn range or explicit conversion consumes a rectangle.
+    if (mode !== 'selection') selected[0].remove()
+    if (mode === 'draw') rangeCapture = null
     page.setPluginData('c2a-annotation-next', String(number + 1))
     editingAnnotation = frame; page.selection = [frame]; figma.commitUndo()
     report(`註記 #${String(number).padStart(2, '0')} 已建立。可直接編輯文字，或移動整組註記。`)
@@ -434,34 +456,55 @@ function clearHandles(): void {
   for (const h of handles.values()) { if (!h.node.removed) h.node.remove(); partStyles.delete(h.node.id) }
   handles.clear()
 }
+// The painted dot is small; its separate, almost transparent frame catches
+// nearby clicks. Dimensions are screen pixels, independent of canvas zoom.
+const HANDLE_HIT_SIZE = 40
+const HANDLE_DOT_SIZE = 14
+function handleFor(node: SceneNode): Handle | undefined {
+  let current: BaseNode | null = node
+  while (current && current !== page) {
+    const handle = handles.get(current.id)
+    if (handle) return handle
+    current = current.parent
+  }
+  return undefined
+}
 function positionHandles(): void {
-  const radius = Math.max(3, Math.min(30, 7 / figma.viewport.zoom))
+  const zoom = Math.max(.01, Math.min(256, finite(figma.viewport.zoom, 1)))
+  const hitSize = HANDLE_HIT_SIZE / zoom, dotSize = HANDLE_DOT_SIZE / zoom
   for (const [id, h] of handles) {
     const n = h.target
-    if (n.removed || !n.visible || h.node.removed) { if (!h.node.removed) h.node.remove(); partStyles.delete(id); handles.delete(id); continue }
+    if (n.removed || !n.visible || h.node.removed || h.dot.removed) { if (!h.node.removed) h.node.remove(); partStyles.delete(id); handles.delete(id); continue }
     const p = anchor(n, h.endpoint.side)
-    size(h.node, radius * 2, radius * 2); move(h.node, p.x - radius, p.y - radius)
-    const weight = Math.max(.5, 2 / figma.viewport.zoom)
-    if (h.node.strokeWeight !== weight) h.node.strokeWeight = weight
+    size(h.node, hitSize, hitSize); move(h.node, p.x - hitSize / 2, p.y - hitSize / 2)
+    size(h.dot, dotSize, dotSize); move(h.dot, (hitSize - dotSize) / 2, (hitSize - dotSize) / 2)
+    const weight = 2 / zoom
+    if (h.dot.strokeWeight !== weight) h.dot.strokeWeight = weight
     const selected = source?.id === n.id && source.side === h.endpoint.side
     const key = selected ? 'selected' : 'idle'
-    if (partStyles.get(h.node.id) !== key) { h.node.fills = [paint(selected ? '#2563eb' : '#ffffff')]; partStyles.set(h.node.id, key) }
+    if (partStyles.get(h.node.id) !== key) { h.dot.fills = [paint(selected ? '#2563eb' : '#ffffff')]; partStyles.set(h.node.id, key) }
   }
 }
 function syncHandles(nodes: SceneNode[]): void {
   const wanted = new Set(nodes.map(n => n.id)), existing = new Set<string>()
   for (const [id, h] of handles) {
-    if (!wanted.has(h.endpoint.id) || h.node.removed) { if (!h.node.removed) h.node.remove(); partStyles.delete(id); handles.delete(id) }
-    else existing.add(h.endpoint.id)
+    if (!wanted.has(h.endpoint.id) || h.node.removed || h.dot.removed) { if (!h.node.removed) h.node.remove(); partStyles.delete(id); handles.delete(id) }
+    else existing.add(`${h.endpoint.id}/${h.endpoint.side}`)
   }
-  for (const node of nodes) {
-    if (existing.has(node.id)) continue
-    endpointCache.set(node.id, node)
+  for (const targetNode of nodes) {
+    endpointCache.set(targetNode.id, targetNode)
     for (const side of sides) {
-      const dot = figma.createEllipse(); page.appendChild(dot)
-      dot.name = `Click2Arrow anchor: ${side}`; dot.fills = [paint('#ffffff')]; dot.strokes = [paint('#2563eb')]
-      dot.setPluginData('c2a-role', 'handle')
-      handles.set(dot.id, { node: dot, endpoint: { id: node.id, side }, target: node })
+      if (existing.has(`${targetNode.id}/${side}`)) continue
+      const hit = figma.createFrame(); page.appendChild(hit)
+      hit.name = `Click2Arrow anchor: ${side}`
+      // A nonzero fill makes the whole frame a native selection target.
+      // Only the paint is transparent, so the child dot retains its contrast.
+      hit.fills = [{ ...paint('#ffffff'), opacity: .001 }]; hit.strokes = []; hit.clipsContent = false
+      hit.setPluginData('c2a-role', 'handle')
+      const dot = figma.createEllipse(); hit.appendChild(dot)
+      dot.name = 'Connection point'; dot.fills = [paint('#ffffff')]; dot.strokes = [paint('#2563eb')]
+      dot.setPluginData('c2a-role', 'handle-dot')
+      handles.set(hit.id, { node: hit, dot, endpoint: { id: targetNode.id, side }, target: targetNode })
     }
   }
   positionHandles()
@@ -500,14 +543,17 @@ function report(message?: string, error = false): void {
   if (message !== undefined) feedback = { message, error, sequence: feedback.sequence + 1 }
   const annotation = editingAnnotation && !editingAnnotation.removed ? annotationSnapshot(editingAnnotation) : null
   const selected = annotationSelection()
+  const captured = rangeCapture?.node
+  const rangeReady = !!captured && convertibleRectangle([captured])
   let range: Box | null = null
-  try { if (selected.length && selected.length <= 100) range = annotationBounds(selected, 0) } catch { /* Invalid ranges remain unavailable. */ }
+  try { if (rangeReady) range = annotationBounds([captured!], 0); else if (selected.length && selected.length <= 100) range = annotationBounds(selected, 0) } catch { /* Invalid ranges remain unavailable. */ }
   const sourceNode = source ? endpointCache.get(source.id) : null
   figma.ui.postMessage({ type: 'state', channel: uiChannel, pageId: page.id, sourceName: sourceNode && !sourceNode.removed ? sourceNode.name : null, range, drawing, busy, source, anchorMode, anchorLimit, anchorCount: handles.size / 4, connectionCount: tracked.size, target: selectedTarget && !selectedTarget.removed ? { id: selectedTarget.id, name: selectedTarget.name } : null,
     editing: editing && !editing.removed ? { id: editing.id, name: editing.name } : null, style, workflow,
     annotation: annotation && editingAnnotation ? { id: editingAnnotation.id, name: editingAnnotation.name, ...annotation, editable: editingAnnotation.parent === page && !editingAnnotation.locked } : null,
     annotationSelectionCount: selected.length, annotationCanCreate: selected.length > 0 && selected.length <= 100 && selected.length === page.selection.length,
-    annotationCanConvert: convertibleRectangle(page.selection), annotationNext: nextAnnotationNumber(), ...feedback })
+    rangeCapture: rangeReady ? 'ready' : rangeCapture ? (captured ? 'invalid' : 'drawing') : 'idle',
+    annotationCanConvert: convertibleRectangle(page.selection) && !captured, annotationNext: nextAnnotationNumber(), ...feedback })
 }
 async function pick(endpoint: Endpoint): Promise<void> {
   if (!drawing || busy) return
@@ -549,12 +595,14 @@ function selectionChanged(allowAutoSwitch = true): void {
   if (busy || isClosed) return
   const selection = page.selection
   const annotation = selection.length === 1 ? ownedAnnotation(selection[0]) : null
+  if (annotation && rangeCapture) clearRangeCapture()
   if (annotation && allowAutoSwitch) {
     workflow = 'annotations'; drawing = false; source = null; selectedTarget = null; editing = null; clearHandles()
   }
   if (workflow === 'annotations') {
     editingAnnotation = annotation; editing = null; selectedTarget = null
-    report(annotation ? '已選取範圍註記。可修改備註，或直接調整外框。' : '框選現有物件，或按 R 畫矩形，再建立範圍註記。')
+    captureRange()
+    report(annotation ? '已選取範圍註記。可修改備註，或直接調整外框。' : rangeCapture?.node ? '範圍已記住。填寫備註後按「建立註記」。' : '按「框選範圍」，再到畫布按 R 拖出範圍。')
     return
   }
   editingAnnotation = null
@@ -562,7 +610,7 @@ function selectionChanged(allowAutoSwitch = true): void {
     editing = null; selectedTarget = null; updateHandles()
     report(selection.length > 1 ? '請一次選取一個 frame 或 component。' : undefined); return
   }
-  const node = selection[0], handle = handles.get(node.id)
+  const node = selection[0], handle = handleFor(node)
   if (handle) { void pick(handle.endpoint); return }
   if (drawing && target(node)) { editing = null; showHandles(node); report(source ? '點四邊連線點之一，完成箭頭。' : '點四邊連線點之一，設定起點。'); return }
   selectedTarget = null; updateHandles()
@@ -598,7 +646,7 @@ async function refreshGeometry(): Promise<boolean> {
 }
 function changed(): void {
   if (timer !== undefined) return
-  timer = setTimeout(() => { timer = undefined; if (workflow === 'annotations') report(); void refreshGeometry().catch(() => report('無法更新箭頭，請重新開啟 plugin。', true)) }, 32)
+  timer = setTimeout(() => { timer = undefined; if (workflow === 'annotations') { captureRange(); report() } void refreshGeometry().catch(() => report('無法更新箭頭，請重新開啟 plugin。', true)) }, 32)
 }
 // Editor property changes can arrive without a usable page notification.
 // Check the bounded set of saved endpoints while the plugin is open. The
@@ -627,14 +675,14 @@ page.on('nodechange', changed)
 watchGeometry()
 figma.on('selectionchange', selectionChanged)
 figma.on('currentpagechange', () => {
-  revision++; clearHandles(); source = null; selectedTarget = null; editing = null; editingAnnotation = null
+  revision++; clearHandles(); clearRangeCapture(); source = null; selectedTarget = null; editing = null; editingAnnotation = null
   endpointCache.clear(); partStyles.clear(); page.off('nodechange', changed); page = figma.currentPage; scan(); page.on('nodechange', changed); selectionChanged(); changed()
 })
 figma.on('close', () => {
   isClosed = true; revision++
   if (timer !== undefined) clearTimeout(timer)
   if (syncTimer !== undefined) clearTimeout(syncTimer)
-  clearHandles(); page.off('nodechange', changed)
+  clearHandles(); clearRangeCapture(); page.off('nodechange', changed)
 })
 figma.ui.onmessage = async (m: Message & { requestId?: string }) => {
   if (!m || isClosed) return
@@ -648,15 +696,25 @@ figma.ui.onmessage = async (m: Message & { requestId?: string }) => {
     }
     if (busy && m.type !== 'style') { succeeded = false; report('請等待目前操作完成。'); return }
     if (m.type === 'workflow') {
+      if (m.value === workflow) { report(); return }
+      clearRangeCapture()
       workflow = m.value === 'annotations' ? 'annotations' : 'arrows'
       if (workflow === 'annotations') { drawing = false; source = null; selectedTarget = null; clearHandles(); editing = null }
       editingAnnotation = null; selectionChanged(false); report(); return
     }
     if (m.type === 'annotation-new') {
+      clearRangeCapture()
       workflow = 'annotations'; drawing = false; source = null; selectedTarget = null; editing = null; editingAnnotation = null; clearHandles(); page.selection = []; report('請選取新的範圍，再填寫備註。'); return
     }
+    if (m.type === 'annotation-range-start') {
+      if (workflow !== 'annotations') throw new Error('請先切換至範圍註記。')
+      clearRangeCapture(); editingAnnotation = null
+      rangeCapture = { existing: new Set(page.findAllWithCriteria({ types: ['RECTANGLE'] }).map(n => n.id)), node: null }
+      page.selection = []; report('點一下畫布，按 R，再拖出要註記的範圍。'); return
+    }
+    if (m.type === 'annotation-range-cancel') { clearRangeCapture(); report('已取消框選。可重新框選範圍。'); return }
     if (m.type === 'annotation-create') {
-      if (workflow !== 'annotations' || (m.mode !== 'rectangle' && m.mode !== 'selection')) throw new Error('請先切換至範圍註記。')
+      if (workflow !== 'annotations' || !['draw', 'rectangle', 'selection'].includes(m.mode)) throw new Error('請先切換至範圍註記。')
       await createAnnotation(m.mode, m.options); return
     }
     if (m.type === 'annotation-apply') { if (workflow !== 'annotations') throw new Error('請先切換至範圍註記。'); await applyAnnotation(m.options); return }

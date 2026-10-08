@@ -20,6 +20,9 @@
         if (node.parent) node.parent.children = node.parent.children.filter(n => n !== node);
         this.children.push(node); node.parent = this;
       }
+      findAllWithCriteria({types}) {
+        const found=[], visit=n=>{for(const child of n.children){if(types.includes(child.type))found.push(child);visit(child);}};visit(this);return found;
+      }
       remove() {
         if (this.parent) this.parent.children = this.parent.children.filter(n => n !== this);
         this.removed = true; for (const n of [...this.children]) n.remove();

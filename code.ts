@@ -48,7 +48,7 @@ let revision = 0
 let timer: ReturnType<typeof setTimeout> | undefined
 let syncTimer: ReturnType<typeof setTimeout> | undefined
 let refreshing = false
-type Handle = { node: FrameNode; dot: EllipseNode; endpoint: Endpoint; target: SceneNode }
+type Handle = { node: FrameNode; area: RectangleNode; dot: EllipseNode; endpoint: Endpoint; target: SceneNode }
 const handles = new Map<string, Handle>()
 const endpointCache = new Map<string, SceneNode>()
 const partStyles = new Map<string, string>()
@@ -456,8 +456,8 @@ function clearHandles(): void {
   for (const h of handles.values()) { if (!h.node.removed) h.node.remove(); partStyles.delete(h.node.id) }
   handles.clear()
 }
-// The painted dot is small; its separate, almost transparent frame catches
-// nearby clicks. Dimensions are screen pixels, independent of canvas zoom.
+// Figma skips empty frame interiors during canvas selection. A real shape
+// catches nearby clicks; the small dot stays legible at every canvas zoom.
 const HANDLE_HIT_SIZE = 40
 const HANDLE_DOT_SIZE = 14
 function handleFor(node: SceneNode): Handle | undefined {
@@ -474,9 +474,10 @@ function positionHandles(): void {
   const hitSize = HANDLE_HIT_SIZE / zoom, dotSize = HANDLE_DOT_SIZE / zoom
   for (const [id, h] of handles) {
     const n = h.target
-    if (n.removed || !n.visible || h.node.removed || h.dot.removed) { if (!h.node.removed) h.node.remove(); partStyles.delete(id); handles.delete(id); continue }
+    if (n.removed || !n.visible || h.node.removed || h.area.removed || h.dot.removed) { if (!h.node.removed) h.node.remove(); partStyles.delete(id); handles.delete(id); continue }
     const p = anchor(n, h.endpoint.side)
     size(h.node, hitSize, hitSize); move(h.node, p.x - hitSize / 2, p.y - hitSize / 2)
+    size(h.area, hitSize, hitSize); move(h.area, 0, 0)
     size(h.dot, dotSize, dotSize); move(h.dot, (hitSize - dotSize) / 2, (hitSize - dotSize) / 2)
     const weight = 2 / zoom
     if (h.dot.strokeWeight !== weight) h.dot.strokeWeight = weight
@@ -488,7 +489,7 @@ function positionHandles(): void {
 function syncHandles(nodes: SceneNode[]): void {
   const wanted = new Set(nodes.map(n => n.id)), existing = new Set<string>()
   for (const [id, h] of handles) {
-    if (!wanted.has(h.endpoint.id) || h.node.removed || h.dot.removed) { if (!h.node.removed) h.node.remove(); partStyles.delete(id); handles.delete(id) }
+    if (!wanted.has(h.endpoint.id) || h.node.removed || h.area.removed || h.dot.removed) { if (!h.node.removed) h.node.remove(); partStyles.delete(id); handles.delete(id) }
     else existing.add(`${h.endpoint.id}/${h.endpoint.side}`)
   }
   for (const targetNode of nodes) {
@@ -497,14 +498,15 @@ function syncHandles(nodes: SceneNode[]): void {
       if (existing.has(`${targetNode.id}/${side}`)) continue
       const hit = figma.createFrame(); page.appendChild(hit)
       hit.name = `Click2Arrow anchor: ${side}`
-      // A nonzero fill makes the whole frame a native selection target.
-      // Only the paint is transparent, so the child dot retains its contrast.
-      hit.fills = [{ ...paint('#ffffff'), opacity: .001 }]; hit.strokes = []; hit.clipsContent = false
+      hit.fills = []; hit.strokes = []; hit.clipsContent = false
       hit.setPluginData('c2a-role', 'handle')
+      const area = figma.createRectangle(); hit.appendChild(area)
+      area.name = 'Connection hit area'; area.fills = [{ ...paint('#ffffff'), opacity: .001 }]; area.strokes = []
+      area.setPluginData('c2a-role', 'handle-area')
       const dot = figma.createEllipse(); hit.appendChild(dot)
       dot.name = 'Connection point'; dot.fills = [paint('#ffffff')]; dot.strokes = [paint('#2563eb')]
       dot.setPluginData('c2a-role', 'handle-dot')
-      handles.set(hit.id, { node: hit, dot, endpoint: { id: targetNode.id, side }, target: targetNode })
+      handles.set(hit.id, { node: hit, area, dot, endpoint: { id: targetNode.id, side }, target: targetNode })
     }
   }
   positionHandles()

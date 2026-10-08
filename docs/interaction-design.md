@@ -10,7 +10,7 @@ Reduce repeated manual line drawing, endpoint alignment and flow annotation betw
 Requested:
 Draw -> hover object -> four side ports -> source click -> target click
 
-Current default (v0.4.1):
+Current default (v0.4.2):
 Draw -> select object -> four side ports -> source click
      -> select target -> four side ports -> target click
 
@@ -122,9 +122,9 @@ Ranges are fixed; they do not track selected source objects. Resizing the border
 
 The current version deliberately has one intermediate diagram per arrow. Multiple movable intermediate steps, automatic avoidance of unrelated objects, editing outside the plugin without metadata drift, and global keyboard shortcuts require additional interaction design. Native hover requires a platform API change.
 
-## Anchor hit areas (v0.4.1)
+## Anchor hit areas (v0.4.2)
 
-Each side midpoint has a 40 x 40 screen-pixel nearly transparent hit frame around a centered 14px visible circle. Both the parent and dot resolve to the same endpoint. Their canvas dimensions follow zoom while IDs remain stable. Native hit behavior remains pending verification; the controller tests prove sizing and event routing only.
+Each side midpoint has a 40 x 40 screen-pixel nearly transparent rectangle behind a centered 14px visible circle, inside a temporary frame. The rectangle, dot and parent resolve to the same endpoint. Their canvas dimensions follow zoom while IDs remain stable. Native testing found that a filled frame alone missed clicks in its interior; using a rectangle shape fixed that. A component-to-frame arrow was completed with clicks approximately 16 screen pixels outside the dot centers at 123% and 30% zoom. See validation for the scope of the native pass.
 
 ## v0.2 performance contract
 

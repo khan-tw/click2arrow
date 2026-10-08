@@ -439,15 +439,16 @@ test('selection changing during cold endpoint lookup cancels arrow editing befor
 test('40px hit targets keep 14px dots and 2px strokes across zoom changes without reallocating', async () => {
   const x=await setup('visible');
   try {
-    await x.send({type:'start',style:defaults});const before=x.dots().map(n=>[n.id,n.children[0].id]);const allocated=x.figma.nodes.size;
+    await x.send({type:'start',style:defaults});const before=x.dots().map(n=>[n.id,n.children.map(child=>child.id)]);const allocated=x.figma.nodes.size;
     for(const zoom of [.1,.25,.5,1,2,4,8]) {
       x.figma.viewport.zoom=zoom;await x.send({type:'refresh'});
-      assert.deepEqual(x.dots().map(n=>[n.id,n.children[0].id]),before);
+      assert.deepEqual(x.dots().map(n=>[n.id,n.children.map(child=>child.id)]),before);
       for(const hit of x.dots()) {
-        const dot=hit.children[0];assert.equal(hit.type,'FRAME');assert.equal(dot.type,'ELLIPSE');
+        const area=hit.children.find(n=>n.getPluginData('c2a-role')==='handle-area'),dot=hit.children.find(n=>n.getPluginData('c2a-role')==='handle-dot');assert.equal(hit.type,'FRAME');assert.equal(dot.type,'ELLIPSE');assert.equal(area.type,'RECTANGLE');
         assert.ok(Math.abs(hit.width*zoom-40)<.001);assert.ok(Math.abs(dot.width*zoom-14)<.001);assert.ok(Math.abs(dot.strokeWeight*zoom-2)<.001);
         assert.ok(Math.abs(dot.x+dot.width/2-hit.width/2)<.001);assert.ok(Math.abs(dot.y+dot.height/2-hit.height/2)<.001);
-        assert.ok(hit.fills[0].opacity>0 && hit.fills[0].opacity<=.001);
+        assert.equal(hit.fills.length,0);assert.ok(area.fills[0].opacity>0 && area.fills[0].opacity<=.001);
+        assert.equal(area.x,0);assert.equal(area.y,0);assert.equal(area.width,hit.width);assert.equal(area.height,hit.height);
       }
     }
     assert.equal(x.figma.nodes.size,allocated);
@@ -459,8 +460,8 @@ test('clicking the visible child or the larger hit target selects the same endpo
     await x.send({type:'start',style:defaults});
     const from=x.dots().find(n=>n.name.endsWith('right')&&n.x+n.width/2===x.a.x+x.a.width);
     const to=x.dots().find(n=>n.name.endsWith('left')&&n.x+n.width/2===x.b.x);
-    const fromDot=from.children[0];await x.choose(fromDot);assert.equal(x.state().source.id,x.a.id);assert.equal(x.state().source.side,'right');
-    await x.choose(to);await tick();assert.equal(x.edges().length,1);
+    const fromDot=from.children.find(n=>n.getPluginData('c2a-role')==='handle-dot');await x.choose(fromDot);assert.equal(x.state().source.id,x.a.id);assert.equal(x.state().source.side,'right');
+    await x.choose(to.children.find(n=>n.getPluginData('c2a-role')==='handle-area'));await tick();assert.equal(x.edges().length,1);
     const e=JSON.parse(x.edges()[0].getPluginData('click2arrow.v1'));assert.equal(e.source.id,x.a.id);assert.equal(e.target.id,x.b.id);
     assert.equal(x.dots().length,8);await x.send({type:'stop'});assert.equal(x.dots().length,0);
     assert.equal(fromDot.removed,true);assert.equal(x.a.removed,false);assert.equal(x.b.removed,false);
@@ -469,9 +470,12 @@ test('clicking the visible child or the larger hit target selects the same endpo
 test('deleting a handle child regenerates only the missing hit target and never treats handles as endpoints', async () => {
   const x=await setup('visible');
   try {
-    await x.send({type:'start',style:defaults});const hit=x.dots()[0],others=x.dots().slice(1).map(n=>n.id);
-    hit.children[0].remove();await x.send({type:'refresh'});assert.equal(hit.removed,true);assert.equal(x.dots().length,8);
-    for(const id of others) assert.ok(x.dots().some(n=>n.id===id));
+    await x.send({type:'start',style:defaults});
+    for(const role of ['handle-area','handle-dot']) {
+      const hit=x.dots()[0],others=x.dots().slice(1).map(n=>n.id);
+      hit.children.find(n=>n.getPluginData('c2a-role')===role).remove();await x.send({type:'refresh'});assert.equal(hit.removed,true);assert.equal(x.dots().length,8);
+      for(const id of others) assert.ok(x.dots().some(n=>n.id===id));
+    }
     await x.send({type:'workflow',value:'annotations'});assert.equal(x.dots().length,0);
     assert.equal(x.a.removed,false);assert.equal(x.b.removed,false);
   } finally {x.figma.emit('close');}

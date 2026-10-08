@@ -49,11 +49,22 @@ The v0.4 generated panel passed 57 browser checks, including source/target flow,
 
 The actual generated panel passed 22 focused browser checks against synthetic scene nodes: default range action, R guidance, form sequencing, pinned dimensions, note preservation, creation, redraw, cancel, alternate range sources and both anchor target layers. Browser console output contained no errors or warnings. Initial and ready-range panel screenshots were inspected. These checks do not establish native Figma hit testing or mouse-drag behavior.
 
-## Native status
+## Native Figma desktop verification (2026-10-08)
 
-Earlier native smoke testing covered plugin import, the panel, selection-mode anchors, Frame/Component connection, labels, Decision shapes, reopening and movement synchronization.
+The v0.4.1 canvas test reproduced missed clicks beside the visible anchor. Its nearly transparent frame interior did not reliably participate in native selection. Controller selection mocks had not caught this behavior. v0.4.2 adds a nearly transparent rectangle shape inside each hit frame; the rectangle, dot and parent all resolve to the same endpoint. Geometry and cleanup tests cover both child shapes.
 
-The v0.4.1 expanded anchor hit areas and draw-range capture still require a native interaction pass. The latest attempt could not activate the dedicated test document; input was stopped without operating on another document. An earlier native smoke found the v0.3 panel did not reflect workflow changes. The v0.4 channel-based bridge removes the parent-WindowProxy assumption; confirmation in the native host is pending. Native testing was interrupted by the Mac lock screen. Browser testing uses the actual generated panel connected to the scene-graph test double; it verifies controls and message wiring, not Figma canvas drag behavior or native font rendering. Screenshots of private editor sessions are not distributed as test evidence.
+Actual mouse and keyboard input in a dedicated synthetic Figma Design document verified:
+
+- At 123% canvas zoom, clicking approximately 16 screen pixels to the right of a component's right-anchor center selected that source.
+- After zooming to 30%, clicking approximately 16 screen pixels to the left of a frame's left-anchor center completed the arrow. The panel reported creation and its connection count increased from 6 to 7; the new native arrow was visible on the canvas.
+- Ending Draw removed the temporary anchors. Closing and reopening the plugin retained all 7 arrows.
+- Clicking `框選範圍`, focusing the canvas, pressing R and dragging captured a 435 x 556 document-pixel range. The note form then became available.
+- Typing a title and multiline note and clicking `建立註記` produced annotation #02 with an unfilled dashed border, number badge and side note. The panel reported it saved.
+- Changing the note to the left side and clicking Save updated its placement. After closing and reopening, selecting the note restored #02, its title, multiline content and saved state.
+
+The note creation pass used v0.4.1; reopening was checked again with the v0.4.2 anchor fix. Native host message exchange worked during these completed flows. Raw screenshots and input logs remain private; no account details, design URLs or unrelated editor tabs are published.
+
+This is scoped native evidence, not full editor coverage. Dark theme, Undo/Redo, direct editing of note text, border resizing, range cancellation/redraw and every zoom level still need native regression passes. Existing automated cases for those behaviors remain test-double evidence. True hover and one-click rectangle-tool activation remain unavailable in this implementation.
 
 ## Manual smoke checklist
 

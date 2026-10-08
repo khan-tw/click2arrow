@@ -39,7 +39,7 @@ The earlier browser measured some muted text at approximately 4.2:1 on white. Th
 
 ## Verification outcome
 
-The revised panel passed 57 browser checks; 30 controller regression scenarios passed. This includes the three initially failing preview checks after their fix. Type checking, packaging and dependency audit passed. Screenshot review covered light/dark and compact panels using synthetic content and simulated theme tokens. Native testing remains pending because the desktop session is locked.
+The revised panel passed 57 browser checks; 30 controller regression scenarios passed. This includes the three initially failing preview checks after their fix. Type checking, packaging and dependency audit passed. Screenshot review covered light/dark and compact panels using synthetic content and simulated theme tokens. At this review checkpoint, native testing was pending because the desktop session was locked. A subsequent native pass and anchor hit-area fix are recorded in [validation](validation.md).
 
 ## Flow acceptance
 

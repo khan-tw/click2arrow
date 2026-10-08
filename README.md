@@ -125,7 +125,7 @@ npm run verify:public
 - `tests/`: scene-graph test double and controller regression tests.
 - [Interaction design](docs/interaction-design.md), [validation](docs/validation.md), and [security review](docs/security-review.md).
 
-The current controller suite covers 38 scenarios, including annotation creation, editing, conversion, numbering, source preservation and asynchronous cancellation. The operation-count benchmark checks 100 geometry updates; it is not a Figma FPS measurement. The v0.4.1 panel passed 22 focused browser checks; native verification of the expanded hit areas and range capture is still pending. See the [product review](docs/product-review.md) for verified browser findings and remaining native checks.
+The current controller suite covers 38 scenarios, including annotation creation, editing, conversion, numbering, source preservation and asynchronous cancellation. The operation-count benchmark checks 100 geometry updates; it is not a Figma FPS measurement. The v0.4.1 panel passed 22 focused browser checks. Native testing then found and fixed missed anchor clicks in v0.4.2: clicks about 16 screen pixels outside the dot center completed a component-to-frame arrow at 123% and 30% zoom. Native range creation, note-side editing and reopening also passed. See [validation](docs/validation.md) for the exact evidence and remaining checks. See the [product review](docs/product-review.md) for verified browser findings and remaining native checks.
 
 ## License
 
